@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y poppler-utils
 COPY . .
 
 # Make port 5000 available to the world outside this container
-EXPOSE 5430
+EXPOSE 5052
 
 VOLUME /app/cert
 VOLUME /app/data
