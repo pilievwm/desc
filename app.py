@@ -4,6 +4,7 @@ import socket
 
 import logging
 import traceback
+from requests.models import MissingSchema
 from flask_socketio import SocketIO, emit
 
 
@@ -40,9 +41,17 @@ def calculate():
         generator.calculate_all(generator.app_settings)
 
         return jsonify({'status': 'success'}), 200
+    except KeyError as e:
+
+        socketio.emit('log', {'data': f'Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'}, namespace='/')
+        return jsonify({'error': f"The key '{str(e)}' was not found in the data. Please check your data source."}), 500
+    except MissingSchema as e:
+
+        socketio.emit('log', {'data': f'{str(e)}'}, namespace='/')
+        return jsonify({'error': 'First you need to add some credentials like: X-CloudCart-ApiKey and OpenAI Key!'}), 500
     except Exception as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'>>>Error: 500<<< \n{str(e)}\n{tb}'}, namespace='/')
+        socketio.emit('log', {'data': f'{str(e)}'}, namespace='/')
         return jsonify({'error': str(e)}), 500
 
 
@@ -67,9 +76,18 @@ def set_settings():
 
         
         return jsonify({'status': 'success'}), 200
+    except KeyError as e:
+
+        socketio.emit('log', {'data': f'Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'}, namespace='/')
+        return jsonify({'error': f"The key '{str(e)}' was not found in the data. Please check your data source."}), 500
+
+    except MissingSchema as e:
+
+        socketio.emit('log', {'data': f'{str(e)}'}, namespace='/')
+        return jsonify({'error': 'First you need to add some credentials like: X-CloudCart-ApiKey and OpenAI Key!'}), 500
     except Exception as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'>>>Error: 500<<< \n{str(e)}\n{tb}'}, namespace='/')
+        socketio.emit('log', {'data': f'{str(e)}'}, namespace='/')
         return jsonify({'error': str(e)}), 500
 
 

@@ -1,11 +1,13 @@
 import requests
 import re
 import openai
-import urllib.parse
+from urllib.parse import urlparse
 import csv
 import json
 import os
 from flask_socketio import SocketIO, emit
+import validators
+
 
 socketio = None
 
@@ -234,8 +236,17 @@ def get_all_products(app_settings):
     if not os.path.exists('data'):
         os.makedirs('data')
     
+    # Build the base URL
+    url = f"{app_settings['url']}/api/v2/products"
+
+    if not validators.url(url):
+        raise Exception("The URL provided in 'app_settings' is not valid")
+
+
+
     # Construct filename from URL without http:// or https://
-    url_without_http = app_settings['url'].replace("http://", "").replace("https://", "")
+    parsed_url = urlparse(app_settings['url'])
+    url_without_http = parsed_url.netloc
     filename = f"data/{url_without_http}.csv"
 
     # Check if file exists, if not create it
