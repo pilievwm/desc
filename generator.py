@@ -1,7 +1,7 @@
 import requests
 import re
 import openai
-from urllib.parse import urlparse
+import urllib.parse
 import csv
 import json
 import os
@@ -245,7 +245,7 @@ def get_all_products(app_settings):
 
 
     # Construct filename from URL without http:// or https://
-    parsed_url = urlparse(app_settings['url'])
+    parsed_url = urllib.parse.urlparse(app_settings['url'])
     url_without_http = parsed_url.netloc
     filename = f"data/{url_without_http}.csv"
 
@@ -495,6 +495,8 @@ def getProducts(app_settings):
     # Build the base URL
     url = f"{app_settings['url']}/api/v2/products"
 
+    if not validators.url(url):
+        raise Exception("The URL provided in 'app_settings' is not valid")
        
     # Build the filters based on app_settings
     filters = {}
