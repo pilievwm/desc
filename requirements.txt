@@ -1,0 +1,9 @@
+Flask
+flask-socketio
+requests
+re
+openai
+urllib3
+csvkit
+json5
+simple-websocket

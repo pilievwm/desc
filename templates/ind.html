@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Settings Form</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.min.js"></script>
+    <script type="text/javascript" charset="utf-8">
+        var socket = io.connect('http://' + document.domain + ':' + location.port + '/');
+        socket.on('log', function(msg) {
+            document.getElementById('output').textContent += msg.data + '\n';
+
+            // Scroll to the bottom
+            var outputDiv = document.getElementById("output");
+            outputDiv.scrollTop = outputDiv.scrollHeight;
+        });
+    </script>
+    <style>
+    .btn-primary {
+        background-color: #ff4b51;
+        border-color: #ff4b51;
+    }
+
+    .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+        background-color: #e64445;
+        border-color: #e64445;
+        /* You can adjust the color above as per your liking for the hover, focus, and active state */
+    }
+    .bootstrap-tagsinput {
+        width: 100%;
+        padding: 6px 12px;
+        border-radius: .25rem;
+        margin: 3px;
+        line-height: 36px;
+    }
+
+    .bootstrap-tagsinput .tag {
+        color: #fff;
+        background-color: #e64445;
+        border: none;
+        padding: 5px;
+        margin: 2px;
+    }
+
+    </style>
+</head>
+<body>
+    <div class="d-flex align-items-center text-white px-3 h3 mb-4" style="height: 70px; background-color: #303c4a;">
+        CloudCart AI Content Generator
+    </div>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-3">
+                <form id="settingsForm" class="mb-1">
+                    <div class="accordion" id="settingsAccordion">
+                        <!-- General Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="generalSettingsHeading">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#generalSettings" aria-expanded="true" aria-controls="generalSettings">
+                                    General Settings
+                                </button>
+                            </h2>
+                            <div id="generalSettings" class="accordion-collapse collapse show" aria-labelledby="generalSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- App Settings Inputs -->
+                                <fieldset>
+                                    <p>Please provide the general configuration for the application.</p>
+                                
+                                    <div class="mb-3">
+                                        <label for="X-CloudCart-ApiKey" class="form-label">X-CloudCart-ApiKey</label>
+                                        <input type="text" class="form-control" id="X-CloudCart-ApiKey">
+                                    </div>
+                                
+                                    <div class="mb-3">
+                                        <label for="openai_key" class="form-label">OpenAI Key</label>
+                                        <input type="text" class="form-control" id="openai_key">
+                                    </div>
+                                
+                                    <div class="mb-3">
+                                        <label for="model" class="form-label">Model</label>
+                                        <select class="form-select" id="model">
+                                            <option selected value="gpt-3.5-turbo">GPT-3.5-Turbo</option>
+                                            <option value="gpt-4">GTP-4</option>
+                                        </select>
+                                        <small class="text-muted">GPT-4 model is more campable but <mark>12 times expensive</mark> than GPT-3.5-Turbo.</small>
+                                    </div>
+                                
+                                </fieldset>
+                                </div>
+                            </div>
+                        </div>
+                    
+                        <!-- Website Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="websiteSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#websiteSettings" aria-expanded="false" aria-controls="websiteSettings">
+                                    Store Settings
+                                </button>
+                            </h2>
+                            <div id="websiteSettings" class="accordion-collapse collapse" aria-labelledby="websiteSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- Your website settings content here -->
+                                    <fieldset>
+                                        <p>Please provide the website settings for the application.</p>
+                                        
+                                        <hr md-3> 
+
+                                        <div class="mb-3">
+                                            <label for="url" class="form-label">Store URL</label>
+                                            <input type="text" class="form-control" id="url" placeholder="URL">
+                                        </div>
+                                    
+                                        <div class="mb-3">
+                                            <label for="website_name" class="form-label">Store Name</label>
+                                            <input type="text" class="form-control" id="website_name" placeholder="Website Name">
+                                        </div>
+                                    
+                                        <div class="mb-3">
+                                            <label for="currency" class="form-label">Currency at the store</label>
+                                            <input type="text" class="form-control" id="currency" placeholder="Example: лева or USD or anything you write">
+                                        </div>
+                                    
+                                        <div class="mb-3">
+                                            <label for="skip_products_with_description" class="form-label">Skip Products With More than <mark>(in words)</mark></label>
+                                            <input type="text" class="form-control" id="skip_products_with_description" placeholder="Example: 20">
+                                            <small class="text-muted">If the value is <mark>0</mark> it will not skip any products.</small>
+                                        </div>
+                                    
+                                        <div class="mb-3">
+                                            <label for="only_category" class="form-label">Process only category ID:</label>
+                                            <input type="text" class="form-control" id="only_category" placeholder="Example: 3">
+                                            <small class="text-muted">If <mark>empty</mark> it will process all products from all categories</small>
+                                        </div>
+                                    
+                                        <div class="mb-3">
+                                            <label for="only_vendor" class="form-label">Process only vendor ID:</label>
+                                            <input type="text" class="form-control" id="only_vendor" placeholder="Example: 142">
+                                            <small class="text-muted">If <mark>empty</mark> it will process all products from all vendors</small>
+                                        </div>
+                                    
+                                        <div class="mb-3">
+                                            <label for="niche" class="form-label">Niche</label>
+                                            <input type="text" class="form-control" id="niche" placeholder="Niche">
+                                        </div>
+
+                                        <hr md-3> 
+
+                                        <div class="mb-3">
+                                            <label for="free_delivery_over" class="form-label">Free Delivery price</label>
+                                            <input type="text" class="form-control" id="free_delivery_over" placeholder="Example: 99">
+                                        </div>
+                                        
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="mention_free_delivery_price">
+                                            <label class="form-check-label" for="mention_free_delivery_price">Show the price for <mark>Free delivery</mark></label>
+                                        </div>
+
+                                        <hr md-3> 
+
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="only_active">
+                                            <label class="form-check-label" for="only_active">Process only <mark>Active products</mark></label>
+                                        </div>
+                                    </fieldset> 
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ext Generate Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="textGenerateSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#textGenerateSettings" aria-expanded="false" aria-controls="textGenerateSettings">
+                                    Product Description Settings
+                                </button>
+                            </h2>
+                            <div id="textGenerateSettings" class="accordion-collapse collapse" aria-labelledby="textGenerateSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- Your website settings content here -->
+                                    <fieldset>
+                                        <p>Please provide what type of information should be included in the generated product descriptions</p>
+                                        <hr md-3>   
+                                        <div class="mb-3">
+                                            <label for="length" class="form-label">Lenght of the description (in words)</label>
+                                            <input type="range" class="form-range" value="0" min="10" max="700" step="10" id="length" oninput="updateLengthValue(this.value)">
+                                            <span id="lengthValue">50</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="temperature" class="form-label">Temperature</label>
+                                            <input type="range" class="form-range" value="0" min="0" max="2" step="0.1" id="temperature" oninput="updateTemperatureValue(this.value)">
+                                            <span id="temperatureValue">0</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="language" class="form-label">Language</label>
+                                            <input type="text" class="form-control" id="language">
+                                        </div>
+
+                                        <hr md-3>                                    
+
+                                        <div class="mb-3">
+                                            <label for="test_mode" class="form-label">Publishing Mode</label>
+                                            <select class="form-select" id="test_mode">
+                                                <option value="0">Update products</option>
+                                                <option selected value="1">Preview product description for 1 product</option>
+                                                <option value="2">Preview product description for 2 products</option>
+                                                <option value="3">Preview product description for 3 product</option>
+                                                <option value="4">Preview product description for 4 product</option>
+                                                <option value="5">Preview product description for 5 product</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="print_prompt">
+                                            <label class="form-check-label" for="print_prompt">Print Prompt</label>
+                                            <br>
+                                            <small class="text-muted">If will print only the prompt that is used to generate description without generating it!</small>
+                                        </div>
+
+                                        <hr md-3>
+
+                                        <div class="mb-3">
+                                            <input type="text" class="form-control" id="purpouse" placeholder="Purpose">
+                                            <small class="text-muted">This is related with the style of writing. Example: <mark>Sales or Marketing or SEO</mark></small>
+                                        </div>
+                                    
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="product_name">
+                                            <label class="form-check-label" for="product_name">Include Product Name</label>
+                                        </div>
+                                    
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="price_from">
+                                            <label class="form-check-label" for="price_from">Include Price From</label>
+                                        </div>
+                                    
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="show_price">
+                                            <label class="form-check-label" for="show_price">Include Price Reference</label>
+                                            <br>
+                                            <small class="text-muted">If enabled, it will include the actual price of the product</small>
+                                        </div>
+                                    
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="short_description">
+                                            <label class="form-check-label" for="short_description">Include Short Description</label>
+                                            <br>
+                                            <small class="text-muted">May increase the price of the service because of the lenght of the prompt. Enable it <mark>Only</mark> if there is valuable information</small>
+                                        </div>
+                                    
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="description">
+                                            <label class="form-check-label" for="description">Include Description</label>
+                                            <br>
+                                            <small class="text-muted">May increase the price of the service because of the lenght of the prompt. Enable it <mark>Only</mark> if you want to keep parts of the current description.</small>
+                                        </div>
+                                    
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="vendor_name">
+                                            <label class="form-check-label" for="vendor_name">Include Vendor Name</label>
+                                        </div>
+                                    
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="category_name">
+                                            <label class="form-check-label" for="category_name">Include Category Name</label>
+                                        </div>
+                                    
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="property_option_values">
+                                            <label class="form-check-label" for="property_option_values">Property Option Values</label>
+                                        </div>
+                                    
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="website_name">
+                                            <label class="form-check-label" for="website_name">Use Website Name</label>
+                                        </div>
+
+
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+                    
+                        <!-- SEO Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="seoSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#seoSettings" aria-expanded="false" aria-controls="seoSettings">
+                                    SEO Settings <small>(Optional but Recommended)</small>
+                                </button>
+                            </h2>
+                            <div id="seoSettings" class="accordion-collapse collapse" aria-labelledby="seoSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- Your SEO settings content here -->
+                                    <fieldset>
+                                        <p>The following section is optional. If enabled it will include valueable information at the description in <mark>Feature/Benefit dichotomy</mark> style and make it SEO friendly. </p>
+                                        <small class="text-muted">It will increase the price of the service by <mark>3x times!</mark></small>
+
+
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="use_seo_package" name="use_seo_package" onchange="toggleSEOSettings()">
+                                            <label class="form-check-label" for="use_seo_package">Use SEO Package</label>
+                                        </div>
+                                        
+                                        <div id="seo_fields" style="display:none;">
+                                            
+                                            <hr md-3> 
+
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="link_to_product" name="link_to_product">
+                                                <label class="form-check-label" for="link_to_product">Link to the Product name</label>
+                                            </div>
+                                    
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="link_to_category" name="link_to_category">
+                                                <label class="form-check-label" for="link_to_category">Link to the Category name</label>
+                                            </div>
+                                    
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="link_to_vendor">
+                                                <label class="form-check-label" for="link_to_vendor">Link to the Vendor name</label>
+                                            </div>
+                                    
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="link_to_more_from_same_vendor_and_category">
+                                                <label class="form-check-label" for="link_to_more_from_same_vendor_and_category">Link to view more products</label>
+                                                <small>The link will be generated to the category with included filter by Vendor</small>
+                                            </div>
+                                    
+                                            <div class="mb-3">
+
+                                                <hr md-3> 
+
+                                                <label for="use_keywords" class="form-label">Number of Keywords</label>
+                                                <select class="form-select" id="use_keywords">
+                                                    <option selected value="0">Don't generate keywords</option>
+                                                    <option value="1">Generate 1 keyword</option>
+                                                    <option value="2">Generate 2 keywords</option>
+                                                    <option value="3">Generate 3 keywords</option>
+                                                    <option value="4">Generate 4 keywords</option>
+                                                    <option value="5">Generate 5 keywords</option>
+                                                </select>
+                                            </div>
+                                            
+                                    
+                                            <div class="mb-3">
+                                                <label for="keywords_density" class="form-label">Keywords Density</label>
+                                                <select class="form-select" id="keywords_density">
+                                                    <option selected value="1">Use 1 keyword into description</option>
+                                                    <option value="2">Use 2 times the generated keywords</option>
+                                                    <option value="3">Use 3 times the generated keywords</option>
+                                                    <option value="4">Use 4 times the generated keywords</option>
+                                                    <option value="5">Use 5 times the generated keywords</option>
+                                                </select>
+                                            </div>
+                                            
+                                    
+                                            <div class="mb-3">
+                                                <label for="use_free_keywords" class="form-label md-3">Use Free Keywords</label>
+                                                <input type="text" class="form-control" data-role="tagsinput" id="use_free_keywords">
+                                            </div>
+                                            
+
+                                            <div class="mb-3">
+                                                <label for="link_keyword_density" class="form-label">Link Keyword Density</label>
+                                                <select class="form-select" id="link_keyword_density">
+                                                    <option selected value="1">Add link to 1 keyword</option>
+                                                    <option value="2">Add link to 2 keywords</option>
+                                                    <option value="3">Add link to 3 keywords</option>
+                                                    <option value="4">Add link to 4 keywords</option>
+                                                    <option value="5">Add link to 5 keywords</option>
+                                                </select>
+                                            </div>
+
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="link_keyword_to_product">
+                                                <label class="form-check-label" for="link_keyword_to_product">Link Keyword to Product</label>
+                                            </div>
+
+                                            <!-- Other SEO fields go here -->
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </form>
+    </div>
+    <div class="col-md-9">
+        <div class="card" style="position: sticky; top: 0;">
+            <div class="card-header border-0">
+                Terminal
+            </div>
+            <div class="card-body p-0">
+                <pre id="output" class="border p-2 m-3" style="height: 70vh; overflow: auto; background-color: black; color: lime; white-space: pre-wrap;">
+                </pre>
+            </div>
+            <div class="d-flex m-3">
+                <button id="calculateButton" class="btn btn-secondary ps-5 pe-5 pb-3 pt-3">Calculate</button>
+                <form id="settingsFormSubmit" class="ms-3" onsubmit="event.preventDefault(); $('#settingsForm').submit();">
+                    <input type="submit" value="Generate" class="btn btn-primary ps-5 pe-5 pb-3 pt-3">
+                </form>
+            </div> 
+            </div>                    
+        </div>
+    </div>
+    
+    <script>
+        function updateTemperatureValue(val) {
+            document.getElementById('temperatureValue').textContent = val;
+        }
+        function updateLengthValue(val) {
+            document.getElementById('lengthValue').textContent = val;
+        }
+    </script>
+
+    <script>
+        $(document).ready(function() {
+            $('#settingsForm').submit(function(e) {
+                e.preventDefault();
+                // Convert and validate skip_products_with_description
+
+                // Collect settings data from the form
+                var data = {
+                    "app_settings": {
+                        "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
+                        "openai_key": $('#openai_key').val(),
+                        "model": $('#model').val(),
+                        "temperature": parseInt($('#temperature').val()) || 0,
+                        "url": $('#url').val(),
+                        "website_name": $('#website_name').val(),
+                        "use_seo_package": $('#use_seo_package').is(':checked'),
+                        "currency": $('#currency').val(),
+                        "length": parseInt($('#length').val()) || 0,
+                        "test_mode": parseInt($('#test_mode').val()) || 0,
+                        "print_prompt": $('#print_prompt').is(':checked'),
+                        "only_active": $('#only_active').is(':checked'),
+                        "skip_products_with_description": parseInt($('#skip_products_with_description').val()) || 0,
+                        "only_category": $('#only_category').val(),
+                        "only_vendor": $('#only_vendor').val(),
+                        "language": $('#language').val(),
+                        "niche": $('#niche').val(),
+                        "free_delivery_over": parseInt($('#free_delivery_over').val()) || 99999999,
+                        "mention_free_delivery_price": $('#mention_free_delivery_price').is(':checked')
+                    },
+                    "seo_settings": {
+                        "link_to_product": $('#link_to_product').is(':checked'),
+                        "link_to_category": $('#link_to_category').is(':checked'),
+                        "link_to_vendor": $('#link_to_vendor').is(':checked'),
+                        "link_to_more_from_same_vendor_and_category": $('#link_to_more_from_same_vendor_and_category').is(':checked'),
+                        "use_keywords": parseInt($('#use_keywords').val()) || 0,
+                        "keywords_density": parseInt($('#keywords_density').val()) || 0,
+                        "use_free_keywords": $('#use_free_keywords').val(),
+                        "link_keyword_to_product": $('#link_keyword_to_product').is(':checked'),
+                        "link_keyword_density": parseInt($('#link_keyword_density').val()) || 0
+                    },
+                    "prompt_settings": {
+                        "purpouse": $('#purpouse').val(),
+                        "product_name": $('#product_name').is(':checked'),
+                        "price_from": $('#price_from').is(':checked'),
+                        "show_price": $('#show_price').is(':checked'),
+                        "short_description": $('#short_description').is(':checked'),
+                        "description": $('#description').is(':checked'),
+                        "vendor_name": $('#vendor_name').is(':checked'),
+                        "category_name": $('#category_name').is(':checked'),
+                        "property_option_values": $('#property_option_values').is(':checked'),
+                        "website_name": $('#website_name').is(':checked')
+                    }
+                    // Get other SEO and prompt settings data...
+                };
+                
+
+                // POST the data as JSON to the specified endpoint
+                fetch('/set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            });
+        });
+    </script>
+
+    <script>
+    $(document).ready(function() {
+        $('#calculateButton').click(function() {
+
+        var data = {
+            "app_settings": {
+                "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
+                "openai_key": $('#openai_key').val(),
+                "model": $('#model').val(),
+                "temperature": parseInt($('#temperature').val()) || 0,
+                "url": $('#url').val(),
+                "website_name": $('#website_name').val(),
+                "use_seo_package": $('#use_seo_package').is(':checked'),
+                "currency": $('#currency').val(),
+                "length": parseInt($('#length').val()) || 0,
+                "test_mode": parseInt($('#test_mode').val()) || 0,
+                "print_prompt": $('#print_prompt').is(':checked'),
+                "only_active": $('#only_active').is(':checked'),
+                "skip_products_with_description": parseInt($('#skip_products_with_description').val()) || 0,
+                "only_category": $('#only_category').val(),
+                "only_vendor": $('#only_vendor').val(),
+                "language": $('#language').val(),
+                "niche": $('#niche').val(),
+                "free_delivery_over": parseInt($('#free_delivery_over').val()) || 99999999,
+                "mention_free_delivery_price": $('#mention_free_delivery_price').is(':checked')
+            },
+            "seo_settings": {
+                "link_to_product": $('#link_to_product').is(':checked'),
+                "link_to_category": $('#link_to_category').is(':checked'),
+                "link_to_vendor": $('#link_to_vendor').is(':checked'),
+                "link_to_more_from_same_vendor_and_category": $('#link_to_more_from_same_vendor_and_category').is(':checked'),
+                "use_keywords": parseInt($('#use_keywords').val()) || 0,
+                "keywords_density": parseInt($('#keywords_density').val()) || 0,
+                "use_free_keywords": $('#use_free_keywords').val(),
+                "link_keyword_to_product": $('#link_keyword_to_product').is(':checked'),
+                "link_keyword_density": parseInt($('#link_keyword_density').val()) || 0
+            },
+            "prompt_settings": {
+                "purpouse": $('#purpouse').val(),
+                "product_name": $('#product_name').is(':checked'),
+                "price_from": $('#price_from').is(':checked'),
+                "show_price": $('#show_price').is(':checked'),
+                "short_description": $('#short_description').is(':checked'),
+                "description": $('#description').is(':checked'),
+                "vendor_name": $('#vendor_name').is(':checked'),
+                "category_name": $('#category_name').is(':checked'),
+                "property_option_values": $('#property_option_values').is(':checked'),
+                "website_name": $('#website_name').is(':checked')
+            }
+            // Get other SEO and prompt settings data...
+        };
+
+        $.ajax({
+            url: '/calculate',
+            type: 'POST',
+            data: JSON.stringify(data),
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
+            async: true,
+            success: function(msg) {
+                console.log(msg);
+            },
+            error: function(error) {
+                console.log(error);
+            }
+        });
+    });
+});
+
+
+                
+
+    </script>
+
+    <script>
+        function toggleSEOSettings() {
+            var checkBox = document.getElementById("use_seo_package");
+            var seoFields = document.getElementById("seo_fields");
+            if (checkBox.checked == true){
+                seoFields.style.display = "block";
+            } else {
+                seoFields.style.display = "none";
+            }
+        }
+
+    </script>
+
+    
+        
+</body>
+</html>
