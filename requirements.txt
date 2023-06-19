@@ -1,7 +1,6 @@
 Flask
 flask-socketio
 requests
-re
 openai
 urllib3
 csvkit
