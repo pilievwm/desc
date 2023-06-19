@@ -88,4 +88,4 @@ def get_ip_address():
 
 if __name__ == "__main__":
     host = get_ip_address()
-    socketio.run(app, port=5430, host=host, debug=True, ssl_context=('cert/fullchain.pem', 'cert/privkey.pem'))
+    socketio.run(app, port=5430, host=host, debug=True, ssl_context=('cert/fullchain.pem', 'cert/privkey.pem'), allow_unsafe_werkzeug=True)
