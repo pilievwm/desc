@@ -1,19 +1,15 @@
 from flask import Flask, request, jsonify, render_template
 import generator
 import socket
-import os
+
 import logging
 import traceback
 from flask_socketio import SocketIO, emit
-from dotenv import load_dotenv
+
 
 
             
 app = Flask(__name__)
-
-# Load environment variables
-load_dotenv('.env')
-
 socketio = SocketIO(app)
 generator.set_socketio(socketio)
 
@@ -84,12 +80,12 @@ def logs_connect():
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     # Use the DNS address from the environment variables
-    s.connect((os.environ['DNS_ADDRESS'], int(os.environ['DNS_PORT'])))
+    s.connect(('8.8.8.8', 80))  # Notice the tuple
     ip_address = s.getsockname()[0]
     s.close()
     return ip_address
 
+
 if __name__ == "__main__":
     host = get_ip_address()
-    data_dir=os.environ['CERT_DIR']
-    socketio.run(app, port=5430, host=host, debug=True, ssl_context=(os.path.join(data_dir, os.environ['FULLCHAIN_FILE']), os.path.join(data_dir, os.environ['PRIVKEY_FILE'])))
+    socketio.run(app, port=5430, host=host, debug=True, ssl_context=('cert/fullchain.pem', 'cert/privkey.pem'))
