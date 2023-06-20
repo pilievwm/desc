@@ -4,7 +4,7 @@ services:
     build: .
     restart: always
     ports:
-      - "5056:5056"
+      - "5052:5052"
     environment:
       FLASK_ENV: development
     env_file:

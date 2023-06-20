@@ -111,4 +111,4 @@ if __name__ == "__main__":
     port = int(os.environ.get('PORT'))
     data_dir=os.environ['CERT_DIR']
     host = get_ip_address()
-    socketio.run(app, host=host, port=port, ssl_context=(os.path.join(data_dir, os.environ['FULLCHAIN_FILE']), os.path.join(data_dir, os.environ['PRIVKEY_FILE'])), allow_unsafe_werkzeug=True)
+    socketio.run(app, host=host, port=port, debug=True, ssl_context=(os.path.join(data_dir, os.environ['FULLCHAIN_FILE']), os.path.join(data_dir, os.environ['PRIVKEY_FILE'])), allow_unsafe_werkzeug=True)
