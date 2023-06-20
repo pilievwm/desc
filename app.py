@@ -1,12 +1,15 @@
 from flask import Flask, request, jsonify, render_template
 import generator
 import socket
-
+import os
 import logging
 import traceback
 from requests.models import MissingSchema
 from flask_socketio import SocketIO, emit
+from dotenv import load_dotenv
 
+# Load .env file
+load_dotenv()
 
 
             
@@ -97,13 +100,15 @@ def logs_connect():
 
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(('8.8.8.8', 80))  # Google's DNS and HTTP port
+    # Use the DNS address from the environment variables
+    s.connect((os.environ['DNS_ADDRESS'], int(os.environ['DNS_PORT'])))
     ip_address = s.getsockname()[0]
     s.close()
     return ip_address
 
 
 if __name__ == "__main__":
+    port = int(os.environ.get('PORT'))
+    data_dir=os.environ['CERT_DIR']
     host = get_ip_address()
-    port = 5055
-    socketio.run(app, port=port, host=host, debug=True, ssl_context=('cert/fullchain.pem', 'cert/privkey.pem'), allow_unsafe_werkzeug=True)
+    socketio.run(app, host=host, port=port, ssl_context=(os.path.join(data_dir, os.environ['FULLCHAIN_FILE']), os.path.join(data_dir, os.environ['PRIVKEY_FILE'])), allow_unsafe_werkzeug=True)

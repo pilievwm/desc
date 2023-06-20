@@ -14,8 +14,11 @@ RUN apt-get update && apt-get install -y poppler-utils
 # Copy the rest of the application code
 COPY . .
 
+# Copy the .env file into the container
+COPY .env ./
+
 # Make port 5000 available to the world outside this container
-EXPOSE 5055
+EXPOSE 5056
 
 VOLUME /app/cert
 VOLUME /app/data

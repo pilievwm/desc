@@ -1,5 +1,6 @@
 Flask
 flask-socketio
+python-dotenv
 requests
 openai
 urllib3
