@@ -3,3 +3,4 @@ data/
 cert/
 __pycache__/
 .vscode/
+.env
