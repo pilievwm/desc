@@ -97,8 +97,7 @@ def logs_connect():
 
 def get_ip_address():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    # Use the DNS address from the environment variables
-    s.connect(('8.8.8.8', 80))  # Notice the tuple
+    s.connect(('8.8.8.8', 80))  # Google's DNS and HTTP port
     ip_address = s.getsockname()[0]
     s.close()
     return ip_address

@@ -64,17 +64,17 @@
                                     General Settings
                                 </button>
                             </h2>
-                            <div id="generalSettings" class="accordion-collapse collapse show" aria-labelledby="generalSettingsHeading" data-bs-parent="#settingsAccordion">
+                            <div id="generalSettings" class="accordion-collapse collapse show bg-light" aria-labelledby="generalSettingsHeading" data-bs-parent="#settingsAccordion">
                                 <div class="accordion-body">
                                     <!-- App Settings Inputs -->
                                 <fieldset>
-                                    <p>Please provide the general configuration for the application.</p>
+                                    <p class="text-black-50">Please provide the general configuration for the application.</p>
                                 
                                     <div class="mb-3">
                                         <label for="url" class="form-label">Store URL</label>
                                         <input type="text" class="form-control" id="url" placeholder="URL">
                                     </div>
-                                    
+
                                     <div class="mb-3">
                                         <label for="X-CloudCart-ApiKey" class="form-label">X-CloudCart-ApiKey</label>
                                         <input type="text" class="form-control" id="X-CloudCart-ApiKey">
@@ -106,11 +106,11 @@
                                     Store Settings
                                 </button>
                             </h2>
-                            <div id="websiteSettings" class="accordion-collapse collapse" aria-labelledby="websiteSettingsHeading" data-bs-parent="#settingsAccordion">
+                            <div id="websiteSettings" class="accordion-collapse collapse bg-light" aria-labelledby="websiteSettingsHeading" data-bs-parent="#settingsAccordion">
                                 <div class="accordion-body">
                                     <!-- Your website settings content here -->
                                     <fieldset>
-                                        <p>Please provide the website settings for the application.</p>
+                                        <p class="text-black-50">Please provide the website settings for the application.</p>
                                         
                                         <hr md-3> 
                                     
@@ -177,11 +177,11 @@
                                     Product Description Settings
                                 </button>
                             </h2>
-                            <div id="textGenerateSettings" class="accordion-collapse collapse" aria-labelledby="textGenerateSettingsHeading" data-bs-parent="#settingsAccordion">
+                            <div id="textGenerateSettings" class="accordion-collapse collapse bg-light" aria-labelledby="textGenerateSettingsHeading" data-bs-parent="#settingsAccordion">
                                 <div class="accordion-body">
                                     <!-- Your website settings content here -->
                                     <fieldset>
-                                        <p>Please provide what type of information should be included in the generated product descriptions</p>
+                                        <p class="text-black-50">Please provide what type of information should be included in the generated product descriptions</p>
                                         <hr md-3>   
                                         <div class="mb-3">
                                             <label for="length" class="form-label">Lenght of the description (in words)</label>
@@ -292,11 +292,11 @@
                                     SEO Settings <small>(Optional but Recommended)</small>
                                 </button>
                             </h2>
-                            <div id="seoSettings" class="accordion-collapse collapse" aria-labelledby="seoSettingsHeading" data-bs-parent="#settingsAccordion">
+                            <div id="seoSettings" class="accordion-collapse collapse bg-light" aria-labelledby="seoSettingsHeading" data-bs-parent="#settingsAccordion">
                                 <div class="accordion-body">
                                     <!-- Your SEO settings content here -->
                                     <fieldset>
-                                        <p>The following section is optional. If enabled it will include valueable information at the description in <mark>Feature/Benefit dichotomy</mark> style and make it SEO friendly. </p>
+                                        <p class="text-black-50">The following section is optional. If enabled it will include valueable information at the description in <mark>Feature/Benefit dichotomy</mark> style and make it SEO friendly. </p>
                                         <small class="text-muted">It will increase the price of the service by <mark>3x times!</mark></small>
 
 
@@ -472,6 +472,13 @@
                     }
                     // Get other SEO and prompt settings data...
                 };
+
+                // change the color and text of the Generate button, and disable it
+                var $generateButton = $('#settingsFormSubmit input[type="submit"]');
+                $generateButton.prop("disabled", true);
+                $generateButton.val("Working...");
+                $generateButton.css("background-color", "#ffa6a9"); // or use any color you want
+
                 
 
                 // POST the data as JSON to the specified endpoint
@@ -479,6 +486,22 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("HTTP error " + response.status);
+                    }
+                    // restore the original color, text, and enable the Generate button after getting a successful response
+                    $generateButton.css("background-color", ""); // this will remove the background-color style
+                    $generateButton.val("Generate");
+                    $generateButton.prop("disabled", false);
+                })
+                .catch(function(error) {
+                    console.log(error);
+                    // restore the original color, text, and enable the Generate button if there is an error
+                    $generateButton.css("background-color", "");
+                    $generateButton.val("Generate");
+                    $generateButton.prop("disabled", false);
                 });
             });
         });
@@ -487,6 +510,8 @@
     <script>
     $(document).ready(function() {
         $('#calculateButton').click(function() {
+        
+        $(this).prop("disabled", true);
 
         var data = {
             "app_settings": {
@@ -544,10 +569,10 @@
             dataType: 'json',
             async: true,
             success: function(msg) {
-                console.log(msg);
+                $("#calculateButton").prop("disabled", false);
             },
             error: function(error) {
-                console.log(error);
+                $("#calculateButton").prop("disabled", false);
             }
         });
     });
