@@ -349,7 +349,7 @@ def get_all_products(app_settings):
                     writer = csv.writer(file)
                     writer.writerow([product_id, description])
 
-
+                
                 ##### TEST MODE ONLY #####
                 if test_mode != 0:
 
@@ -437,12 +437,12 @@ def get_all_products(app_settings):
                     # Update the product description
                     updateProduct(product_id, description, app_settings)
                     socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."}, namespace='/')
-            socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
-            return description 
-        
-    
+            
+        ###### NEXT PAGE ######
         url = data['links']['next'] if 'next' in data['links'] else None
 
+    ###### EXIT THE LOOP ######
+    socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
         
 
 def calculate_all(app_settings):

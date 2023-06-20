@@ -106,4 +106,4 @@ def get_ip_address():
 if __name__ == "__main__":
     host = get_ip_address()
     port = 5054
-    socketio.run(app, port=5054, host=host, debug=True, ssl_context=('cert/fullchain.pem', 'cert/privkey.pem'), allow_unsafe_werkzeug=True)
+    socketio.run(app, port=port, host=host, debug=True, ssl_context=('cert/fullchain.pem', 'cert/privkey.pem'), allow_unsafe_werkzeug=True)
