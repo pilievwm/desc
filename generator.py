@@ -7,6 +7,7 @@ import json
 import os
 from flask_socketio import SocketIO, emit
 import validators
+import time
 
 
 socketio = None
@@ -125,13 +126,31 @@ def get_keywords(seo_settings, app_settings, product):
         return ''
     prompt = f'You are skilled SEO expert. Research ONLY the top {seo_settings["use_keywords"]} long-tail keywords, from the title of this product in {app_settings["language"]} language. Use the category \"{product["category_name"]}\" and the brand \"{product["vendor_name"]}\" only if you are absolutly sure that the information is critical for the top long-tail keyword. Please note that I want only the words without any other explanations from your side! Return the keywords by comma separated.\n'
 
-    response = openai.ChatCompletion.create(
-        model=app_settings['model'],
-        messages=[
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0,
-    )
+    max_retries = 15
+
+    for attempt in range(max_retries):
+        try:
+            response = openai.ChatCompletion.create(
+                model=app_settings['model'],
+                messages=[
+                    {"role": "user", "content": prompt}
+                                                    ],
+                temperature=app_settings['temperature'],
+            )
+            # If the request was successful, break out of the loop
+            break
+        except openai.error.ApiError as e:
+            if e.http_status == 500 or e.http_status == 503:
+                # Wait for a bit before retrying and print an error message
+                wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
+                print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
+                time.sleep(wait_time)
+            else:
+                # If it's a different error, we raise it to stop the program
+                raise
+    else:
+        # If we've exhausted the maximum number of retries, we raise an exception
+        raise Exception("Maximum number of retries exceeded.")
 
     # Do something with the response, e.g., print the message content
     return(response['choices'][0]['message']['content'])
@@ -332,15 +351,35 @@ def get_all_products(app_settings):
                 
                     return(prompt)
                 socketio.emit('log', {'data': f"Processing product {product_count} of {total_products} with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"}, namespace='/')
+                
+                
                 # Get the response from OpenAI
-                response = openai.ChatCompletion.create(
-                    model=app_settings['model'],
-                    messages=[
-                        {"role": "user", "content": prompt},
-                        {"role": "system", "content": "You must add html tags to the text and you must bold important parts and words! Do not use H1 tags, use H2 and H3 tags instead! The links at the text should be accross the entire text not only at the end!"},
-                    ],
-                    temperature=app_settings['temperature'],
-                )
+                max_retries = 15
+
+                for attempt in range(max_retries):
+                    try:
+                        response = openai.ChatCompletion.create(
+                            model=app_settings['model'],
+                            messages=[
+                                {"role": "user", "content": prompt},
+                                {"role": "system", "content": "You must add html tags to the text and you must bold important parts and words! Do not use H1 tags, use H2 and H3 tags instead! The links at the text should be accross the entire text not only at the end!"},
+                            ],
+                            temperature=app_settings['temperature'],
+                        )
+                        # If the request was successful, break out of the loop
+                        break
+                    except openai.error.ApiError as e:
+                        if e.http_status == 500 or e.http_status == 503:
+                            # Wait for a bit before retrying and print an error message
+                            wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
+                            print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
+                            time.sleep(wait_time)
+                        else:
+                            # If it's a different error, we raise it to stop the program
+                            raise
+                else:
+                    # If we've exhausted the maximum number of retries, we raise an exception
+                    raise Exception("Maximum number of retries exceeded.")
 
                 description = response['choices'][0]['message']['content']
 
