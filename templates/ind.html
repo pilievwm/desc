@@ -21,13 +21,13 @@
     </script>
     <style>
     .btn-primary {
-        background-color: #ff4b51;
-        border-color: #ff4b51;
+        background-color: #82c58a;
+        border-color: #70b478;
     }
 
     .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
-        background-color: #e64445;
-        border-color: #e64445;
+        background-color: #6caf73;
+        border-color: #519359;
         /* You can adjust the color above as per your liking for the hover, focus, and active state */
     }
     .bootstrap-tagsinput {
@@ -399,11 +399,16 @@
                 <pre id="output" class="border p-2 m-3" style="height: 70vh; overflow: auto; background-color: black; color: lime; white-space: pre-wrap;">
                 </pre>
             </div>
-            <div class="d-flex m-3">
-                <button id="calculateButton" class="btn btn-secondary ps-5 pe-5 pb-3 pt-3">Calculate</button>
-                <form id="settingsFormSubmit" class="ms-3" onsubmit="event.preventDefault(); $('#settingsForm').submit();">
+            <div class="d-flex justify-content-between m-3">
+                <div>
+                    <button id="stopButton" type="button" class="btn btn-danger ps-5 pe-5 pb-3 pt-3">Cancel the process</button>
+                    <button id="calculateButton" class="btn btn-secondary ps-5 pe-5 pb-3 pt-3">Calculate</button>
+                </div>
+                <form id="settingsFormSubmit" onsubmit="event.preventDefault(); $('#settingsForm').submit();">
                     <input type="submit" value="Generate" class="btn btn-primary ps-5 pe-5 pb-3 pt-3">
                 </form>
+            </div>
+            
             </div> 
             </div>                    
         </div>
@@ -495,6 +500,7 @@
                     $generateButton.css("background-color", ""); // this will remove the background-color style
                     $generateButton.val("Generate");
                     $generateButton.prop("disabled", false);
+                    $('#stopButton').prop('disabled', true).text('Cancel the process');
                 })
                 .catch(function(error) {
                     console.log(error);
@@ -578,10 +584,37 @@
     });
 });
 
-
-                
-
     </script>
+
+<script>
+    $(document).ready(function() {
+    
+        $('#stopButton').prop('disabled', true); // Disable the "Stop" button initially
+    
+        $('#settingsFormSubmit').on('submit', function() {
+            $('#stopButton').prop('disabled', false).text('Cancel the process'); // Enable the "Stop" button when process starts
+        });
+    
+        $('#stopButton').click(function() {
+            $(this).prop('disabled', true).text('Canceling...'); // Disable the button and change the text when clicked
+
+            $.ajax({
+                url: '/stop_process',
+                type: 'POST',
+            })
+            .done(function(response) {
+                console.log(response);
+                // Here you can add any actions you want to perform when the request is successful
+            })
+            .fail(function(error) {
+                console.log(error);
+                // Here you can handle errors
+            });
+        });
+    });
+</script>
+
+    
 
     <script>
         function toggleSEOSettings() {

@@ -9,6 +9,18 @@ from flask_socketio import SocketIO, emit
 import validators
 import time
 
+# Global flag to signal stopping the process
+stop_process = False
+
+def stop():
+    print('Stopping the process...')
+    global stop_process
+    stop_process = True
+
+def reset_stop():
+    print('Resetting the process...')
+    global stop_process
+    stop_process = False
 
 socketio = None
 
@@ -248,7 +260,7 @@ def get_all_products(app_settings):
     headers = {
         'X-CloudCart-ApiKey': app_settings['X-CloudCart-ApiKey'],
     }
-
+    
     processed_products = []
     socketio.emit('log', {'data': f'Started...'}, namespace='/')
     # Create 'data' directory if it doesn't exist
@@ -310,8 +322,20 @@ def get_all_products(app_settings):
         if current_total_cost > 1:
             socketio.emit('log', {'data': f'The limit for {app_settings["url"]} has been reached.'}, namespace='/')
             return
+    
+    ####### Reset the flag for stopping the process #######
+    reset_stop()
 
     while url:
+
+        ####### Check if the process has been stopped by the user #######
+
+        global stop_process
+        if stop_process:
+            socketio.emit('log', {'data': 'Process stopped by user.'}, namespace='/')
+            stop()  # Stop process
+            break
+
         response = requests.get(url, headers=headers)
         data = response.json()
 
@@ -392,6 +416,10 @@ def get_all_products(app_settings):
                 ##### TEST MODE ONLY #####
                 if test_mode != 0:
 
+                    if stop_process:
+                        stop()  # Stop process
+                        break
+
                     
                     if not os.path.isfile(total_csv_file):
                         with open(total_csv_file, 'w') as csvfile:
@@ -442,7 +470,10 @@ def get_all_products(app_settings):
                     break
                 
                 if test_mode == 0:
-                    ###### LOGS AND CALCULATIONS ######
+
+                    if stop_process:
+                        stop()  # Stop process
+                        break
 
                     # Calculate the number of tokens
                     csv_file_total = 'data/total_costs.csv'

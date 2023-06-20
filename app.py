@@ -11,17 +11,20 @@ from dotenv import load_dotenv
 # Load .env file
 load_dotenv()
 
-
             
 app = Flask(__name__)
 socketio = SocketIO(app)
 generator.set_socketio(socketio)
 
 
-
-
 # Enable logging
 #logging.basicConfig(filename='app.log', level=logging.DEBUG)
+
+
+@app.route('/stop_process', methods=['POST'])
+def stop_process():
+    generator.stop()  # Call the function from generator.py
+    return 'Process stopped.'
 
 @app.route('/')
 def mypage():
