@@ -8,3 +8,6 @@ csvkit
 json5
 simple-websocket
 validators
+flask_session
+Flask-Login
+Flask-Dance

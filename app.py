@@ -7,15 +7,39 @@ import traceback
 from requests.models import MissingSchema
 from flask_socketio import SocketIO, emit
 from dotenv import load_dotenv
+from flask import Flask, session
+from flask_session import Session
+
+app = Flask(__name__)
+
+# Flask-Session configuration
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SECRET_KEY'] = os.urandom(24) # Secret key for signing session cookies
+app.config['SESSION_FILE_DIR'] = 'sessions' # Directory where session files will be stored
+app.config['SESSION_PERMANENT'] = False # Session data should not be permanent
+app.config['SESSION_USE_SIGNER'] = True # Secure cookies
+
+Session(app)
+
 
 # Load .env file
-load_dotenv()
+load_dotenv()  
 
-            
-app = Flask(__name__)
-socketio = SocketIO(app)
+socketio = SocketIO(app, manage_session=False)
+
+user_data = {}  # Here's where you'd store user data
+
+@socketio.on('connect')
+def connect_handler():
+    print(f"Client {request.sid} connected")
+    user_data[request.sid] = {}  # Initialize user data for this session
+
+@socketio.on('disconnect')
+def disconnect_handler():
+    print(f"Client {request.sid} disconnected")
+    del user_data[request.sid]  # Clean up user data for this session
+
 generator.set_socketio(socketio)
-
 
 # Enable logging
 #logging.basicConfig(filename='app.log', level=logging.DEBUG)
@@ -88,12 +112,12 @@ def set_settings():
         return jsonify({'error': f"The key '{str(e)}' was not found in the data. Please check your data source."}), 500
 
     except MissingSchema as e:
-
-        socketio.emit('log', {'data': f'{str(e)}'}, namespace='/')
+        tb = traceback.format_exc()  # get the traceback
+        socketio.emit('log', {'data': f'{str(e)}\n{tb}'}, namespace='/')
         return jsonify({'error': 'First you need to add some credentials like: X-CloudCart-ApiKey and OpenAI Key!'}), 500
     except Exception as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{str(e)}'}, namespace='/')
+        socketio.emit('log', {'data': f'{str(e)}\n{tb}'}, namespace='/')
         return jsonify({'error': str(e)}), 500
 
 
