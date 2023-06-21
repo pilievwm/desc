@@ -1,0 +1,239 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Option 1: Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+
+    <title>Projects</title>
+</head>
+<body>
+    <div class="d-flex align-items-center text-white px-3 h3 mb-4 justify-content-between" style="height: 70px; background-color: #303c4a;">
+        <div>CloudCart AI Content Generator</div>
+        <div class="d-flex align-items-center">
+            {% if current_user.is_authenticated %}
+                <div class="px-3">{{ current_user.name }}!</div>
+                <a href="/logout" class="btn btn-primary">Logout</a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="container d-flex align-items-center justify-content-between">
+            <h1 class="my-4">Projects</h1>
+            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newProjectModal">
+                Add New Project
+            </button>
+        </div>
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th scope="col">ID</th>
+                    <th scope="col">Store URL</th>
+                    <th scope="col">X-CloudCart-ApiKey</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for project in projects %}
+                <tr>
+                    <td>{{ project.id }}</td>
+                    <td>{{ project.store_url }}</td>
+                    <td>{{ project.x_cloudcart_apikey }}</td>
+                    <td><a href="/ai/{{ project.id }}" class="btn btn-outline-primary btn-sm">View Project</a></td>
+                    <td><button class="btn btn-outline-warning btn-sm editProjectButton" data-id="{{ project.id }}" data-bs-toggle="modal" data-bs-target="#editProjectModal">Edit Project</button></td>
+                    <td><button class="btn btn-outline-danger btn-sm deleteProjectButton" data-id="{{ project.id }}">Delete Project</button></td>
+                    
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Modal -->
+    <div class="modal fade" id="newProjectModal" tabindex="-1" aria-labelledby="newProjectModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                <h5 class="modal-title" id="newProjectModalLabel">New Project</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger" id="errorMessage" style="display: none;"></div>
+                <!-- Add the id to your form -->
+                    <form id="newProjectForm" method="post">
+                        <div class="mb-3">
+                            <label for="store_url" class="form-label">Store URL</label>
+                            <input type="text" class="form-control" id="store_url" name="store_url" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="x_cloudcart_apikey" class="form-label">X-CloudCart-ApiKey</label>
+                            <input type="text" class="form-control" id="x_cloudcart_apikey" name="x_cloudcart_apikey" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Project Modal -->
+    <div class="modal fade" id="editProjectModal" tabindex="-1" aria-labelledby="editProjectModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                <h5 class="modal-title" id="editProjectModalLabel">Edit Project</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Add the id to your form -->
+                    <form id="editProjectForm" method="post">
+                        <input type="hidden" id="editProjectId" name="editProjectId">
+                        <div class="mb-3">
+                            <label for="editStoreUrl" class="form-label">Store URL</label>
+                            <input type="text" class="form-control" id="editStoreUrl" name="editStoreUrl" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editXCloudCartApiKey" class="form-label">X-CloudCart-ApiKey</label>
+                            <input type="text" class="form-control" id="editXCloudCartApiKey" name="editXCloudCartApiKey" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Project Confirmation Modal -->
+    <div class="modal fade" id="deleteProjectModal" tabindex="-1" aria-labelledby="deleteProjectModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                <h5 class="modal-title" id="deleteProjectModalLabel">Delete Project</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this project?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmDeleteButton">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Optional JavaScript; choose one of the two! -->
+
+    
+    <script>
+
+        $(document).ready(function() {
+
+        // Handle the new project form
+            $('#newProjectForm').submit(function(e) {
+            e.preventDefault();
+
+            $.ajax({
+                url: '/projects/new',
+                method: 'POST',
+                data: $(this).serialize(),
+                success: function(response) {
+                    // Close the modal
+                    $('#newProjectModal').modal('hide');
+
+                    // Refresh the page to see the new project
+                    location.reload();
+                },
+                error: function(response) {
+                    // Handle error here
+                    var errorMsg = response.responseJSON.error;
+                    $("#errorMessage").text(errorMsg);
+                    $("#errorMessage").show();
+                }
+            });
+        });
+
+        $('body').on('click', '.editProjectButton', function() {
+            var projectId = $(this).attr('data-id');
+
+            $.ajax({
+                url: '/projects/' + projectId,
+                method: 'GET',
+                success: function(response) {
+                    $('#editProjectId').val(projectId);
+                    $('#editStoreUrl').val(response.store_url);
+                    $('#editXCloudCartApiKey').val(response.x_cloudcart_apikey);
+                }
+            });
+        });
+
+        $('#editProjectForm').submit(function(e) {
+            e.preventDefault();
+
+            var projectId = $('#editProjectId').val();
+
+            $.ajax({
+                url: '/projects/edit/' + projectId,
+                
+                method: 'POST',
+                data: $(this).serialize(),
+                success: function(response) {
+                    // Close the modal
+                    $('#editProjectModal').modal('hide');
+
+                    // Refresh the page to see the edited project
+                    location.reload();
+                },
+                error: function(response) {
+                    // Handle error here
+                    var errorMsg = response.responseJSON.error;
+                    $("#errorMessage").text(errorMsg);
+                    $("#errorMessage").show();
+                }
+            });
+        });
+        
+        $('body').on('click', '.deleteProjectButton', function() {
+            var projectIdToDelete;
+
+            $('body').on('click', '.deleteProjectButton', function() {
+                projectIdToDelete = $(this).attr('data-id');
+                $('#deleteProjectModal').modal('show');
+            });
+
+            $('#confirmDeleteButton').click(function() {
+                $.ajax({
+                    url: '/projects/' + projectIdToDelete,
+                    method: 'DELETE',
+                    success: function(response) {
+                        // Close the modal
+                        $('#deleteProjectModal').modal('hide');
+
+                        // Refresh the page to see the updated list of projects
+                        location.reload();
+                    },
+                    error: function(response) {
+                        // Handle error here
+                        var errorMsg = response.responseJSON.error;
+                        $("#errorMessage").text(errorMsg);
+                        $("#errorMessage").show();
+                    }
+                });
+            });
+        });
+    });
+
+
+    </script>
+
+</body>
+</html>

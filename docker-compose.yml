@@ -12,3 +12,5 @@ services:
     volumes:
       - ./cert:/app/cert
       - ./data:/app/data
+      - ./database:/app/database
+      - ./sessions:/app/sessions

@@ -22,6 +22,7 @@ EXPOSE 5053
 
 VOLUME /app/cert
 VOLUME /app/data
+VOLUME /app/database
 
 # Run the command to start the Flask application
 #CMD ["flask", "run", "--host=0.0.0.0"]

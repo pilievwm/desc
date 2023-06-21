@@ -552,7 +552,7 @@ def calculate_all(app_settings):
 
     formatted_cost = f"{0.92 * cost:.2f}"   # format cost as a float with 3 decimal places
 
-    socketio.emit('log', {'data': f"Approximate estimated cost for {getTotalProducts} products: €{formatted_cost} EUR without VAT || CC = {cost_cc}"}, namespace='/')
+    socketio.emit('log', {'data': f"Approximate estimated cost for model {app_settings['model']} for {getTotalProducts} products with description of {app_settings['length']} words each: €{formatted_cost} EUR without VAT"}, namespace='/')
 
     return formatted_cost
 
