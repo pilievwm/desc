@@ -11,16 +11,27 @@
     <!-- Option 1: Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-
+    <style>
+        .gradient-custom {
+            /* fallback for old browsers */
+            background: #667eea;
+        
+            /* Chrome 10-25, Safari 5.1-6 */
+            background: -webkit-linear-gradient(to right, rgba(102,126,234,1), rgba(118,75,162,1));
+        
+            /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+            background: linear-gradient(to right, rgba(102,126,234,1), rgba(118,75,162,1))
+        }
+    </style>
 
     <title>Projects</title>
 </head>
 <body>
-    <div class="d-flex align-items-center text-white px-3 h3 mb-4 justify-content-between" style="height: 70px; background-color: #303c4a;">
+    <div class="d-flex align-items-center text-white px-3 h5 mb-4 justify-content-between gradient-custom" style="height: 55px">
         <div>CloudCart AI Content Generator</div>
         <div class="d-flex align-items-center">
             {% if current_user.is_authenticated %}
-                <div class="px-3">{{ current_user.name }}!</div>
+                <div class="px-3">{{ current_user.name }}</div>
                 <a href="/logout" class="btn btn-primary">Logout</a>
             {% endif %}
         </div>
@@ -135,81 +146,77 @@
 
     
     <script>
-
         $(document).ready(function() {
-
-        // Handle the new project form
-            $('#newProjectForm').submit(function(e) {
-            e.preventDefault();
-
-            $.ajax({
-                url: '/projects/new',
-                method: 'POST',
-                data: $(this).serialize(),
-                success: function(response) {
-                    // Close the modal
-                    $('#newProjectModal').modal('hide');
-
-                    // Refresh the page to see the new project
-                    location.reload();
-                },
-                error: function(response) {
-                    // Handle error here
-                    var errorMsg = response.responseJSON.error;
-                    $("#errorMessage").text(errorMsg);
-                    $("#errorMessage").show();
-                }
-            });
-        });
-
-        $('body').on('click', '.editProjectButton', function() {
-            var projectId = $(this).attr('data-id');
-
-            $.ajax({
-                url: '/projects/' + projectId,
-                method: 'GET',
-                success: function(response) {
-                    $('#editProjectId').val(projectId);
-                    $('#editStoreUrl').val(response.store_url);
-                    $('#editXCloudCartApiKey').val(response.x_cloudcart_apikey);
-                }
-            });
-        });
-
-        $('#editProjectForm').submit(function(e) {
-            e.preventDefault();
-
-            var projectId = $('#editProjectId').val();
-
-            $.ajax({
-                url: '/projects/edit/' + projectId,
-                
-                method: 'POST',
-                data: $(this).serialize(),
-                success: function(response) {
-                    // Close the modal
-                    $('#editProjectModal').modal('hide');
-
-                    // Refresh the page to see the edited project
-                    location.reload();
-                },
-                error: function(response) {
-                    // Handle error here
-                    var errorMsg = response.responseJSON.error;
-                    $("#errorMessage").text(errorMsg);
-                    $("#errorMessage").show();
-                }
-            });
-        });
-        
-        $('body').on('click', '.deleteProjectButton', function() {
             var projectIdToDelete;
-
+    
+            // Handle the new project form
+            $('#newProjectForm').submit(function(e) {
+                e.preventDefault();
+    
+                $.ajax({
+                    url: '/projects/new',
+                    method: 'POST',
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        // Close the modal
+                        $('#newProjectModal').modal('hide');
+    
+                        // Refresh the page to see the new project
+                        location.reload();
+                    },
+                    error: function(response) {
+                        // Handle error here
+                        var errorMsg = response.responseJSON.error;
+                        $("#errorMessage").text(errorMsg);
+                        $("#errorMessage").show();
+                    }
+                });
+            });
+    
+            $('body').on('click', '.editProjectButton', function() {
+                var projectId = $(this).attr('data-id');
+    
+                $.ajax({
+                    url: '/projects/' + projectId,
+                    method: 'GET',
+                    success: function(response) {
+                        $('#editProjectId').val(projectId);
+                        $('#editStoreUrl').val(response.store_url);
+                        $('#editXCloudCartApiKey').val(response.x_cloudcart_apikey);
+                    }
+                });
+            });
+    
+            $('#editProjectForm').submit(function(e) {
+                e.preventDefault();
+    
+                var projectId = $('#editProjectId').val();
+    
+                $.ajax({
+                    url: '/projects/edit/' + projectId,
+                    method: 'POST',
+                    data: $(this).serialize(),
+                    success: function(response) {
+                        // Close the modal
+                        $('#editProjectModal').modal('hide');
+    
+                        // Refresh the page to see the edited project
+                        location.reload();
+                    },
+                    error: function(response) {
+                        // Handle error here
+                        var errorMsg = response.responseJSON.error;
+                        $("#errorMessage").text(errorMsg);
+                        $("#errorMessage").show();
+                    }
+                });
+            });
+    
             $('body').on('click', '.deleteProjectButton', function() {
                 projectIdToDelete = $(this).attr('data-id');
                 $('#deleteProjectModal').modal('show');
             });
-
+    
             $('#confirmDeleteButton').click(function() {
                 $.ajax({
                     url: '/projects/' + projectIdToDelete,
@@ -217,7 +224,7 @@
                     success: function(response) {
                         // Close the modal
                         $('#deleteProjectModal').modal('hide');
-
+    
                         // Refresh the page to see the updated list of projects
                         location.reload();
                     },
@@ -230,10 +237,7 @@
                 });
             });
         });
-    });
-
-
     </script>
-
+    
 </body>
 </html>

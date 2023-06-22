@@ -5,12 +5,13 @@ import urllib.parse
 import csv
 import json
 import os
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit, disconnect
 import validators
 import time
 
 # Global flag to signal stopping the process
 stop_process = False
+
 
 def stop():
     print('Stopping the process...')
@@ -27,6 +28,7 @@ socketio = None
 def set_socketio(sio):
     global socketio
     socketio = sio
+
 
 # Initialize the settings as empty dictionaries
 app_settings = {}
@@ -244,7 +246,7 @@ def create_prompt(product, prompt_settings, app_settings, seo_settings):
     if prompt_settings['description']:
         prompt += f"5. Use the existing description for your product description: \"{product['description']}\"\n"
     if prompt_settings['vendor_name']:
-        prompt += f"6. Te brand of the product is: \"{product['vendor_name']}\";\n"
+        prompt += f"6. The brand of the product is: \"{product['vendor_name']}\";\n"
     if prompt_settings['category_name']:
         prompt += f"7. Category is: \"{product['category_name']}\" (you must use it only for reference for the description but not directly);\n"
     if prompt_settings['property_option_values']:
@@ -263,28 +265,13 @@ def get_all_products(app_settings):
     
     processed_products = []
     socketio.emit('log', {'data': f'Started...'}, namespace='/')
-    # Create 'data' directory if it doesn't exist
-    if not os.path.exists('data'):
-        os.makedirs('data')
-    
+ 
     # Build the base URL
     url = f"{app_settings['url']}/api/v2/products"
 
     if not validators.url(url):
         raise Exception("The URL provided in 'app_settings' is not valid")
 
-
-
-    # Construct filename from URL without http:// or https://
-    parsed_url = urllib.parse.urlparse(app_settings['url'])
-    url_without_http = parsed_url.netloc
-    filename = f"data/{url_without_http}.csv"
-
-    # Check if file exists, if not create it
-    if not os.path.isfile(filename):
-        with open(filename, 'w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(["Product ID", "Generated description"])
 
     # Build the base URL
     url = f"{app_settings['url']}/api/v2/products"
@@ -310,23 +297,18 @@ def get_all_products(app_settings):
     product_count = 0  # add a counter for products processed
     test_mode = app_settings['test_mode']  # Get the test mode value from settings
     description = ''  # Initialize the description variable
-    if test_mode > 0:
-        # Get current total cost
-        total_csv_file = f"data/total_costs_test_mode.csv"
-        if not os.path.isfile(total_csv_file):
-            with open(total_csv_file, 'w') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=['url', 'total_cost'])
-                writer.writeheader()
-        current_row = read_from_csv(total_csv_file, app_settings['url'])
-        current_total_cost = float(current_row['total_cost']) if current_row is not None else 0
-        if current_total_cost > 1:
-            socketio.emit('log', {'data': f'The limit for {app_settings["url"]} has been reached.'}, namespace='/')
-            return
+    #if test_mode > 0:
+        
+        ##### TO DO make Get current total cost #####
+
+        ############################################
     
     ####### Reset the flag for stopping the process #######
-    reset_stop()
+    #reset_stop()
 
-    while url:
+    limit_reached = False
+
+    while url and not limit_reached:
 
         ####### Check if the process has been stopped by the user #######
 
@@ -407,11 +389,6 @@ def get_all_products(app_settings):
 
                 description = response['choices'][0]['message']['content']
 
-                # Write generated descriptions to a CSV log
-                with open(filename, 'a', newline='') as file:
-                    writer = csv.writer(file)
-                    writer.writerow([product_id, description])
-
                 
                 ##### TEST MODE ONLY #####
                 if test_mode != 0:
@@ -419,90 +396,31 @@ def get_all_products(app_settings):
                     if stop_process:
                         stop()  # Stop process
                         break
-
-                    
-                    if not os.path.isfile(total_csv_file):
-                        with open(total_csv_file, 'w') as csvfile:
-                            writer = csv.DictWriter(csvfile, fieldnames=['url', 'total_cost'])
-                            writer.writeheader()
                         
-                    # Get current total cost
-                    current_row = read_from_csv(total_csv_file, app_settings['url'])
-                    current_total_cost = float(current_row['total_cost']) if current_row is not None else 0
-                    if current_total_cost > 1:
-                        socketio.emit('log', {'data': f'The limit for {app_settings["url"]} has been reached.'}, namespace='/')
-                        return
+                    ###### TO DO Get current total cost ######
+
+                    #########################################
 
                     # Calculate cost
                     cost = calculate_cost(response, app_settings)                
-
-                    # Add to running totals
-                    total_tokens_all_products += response['usage']['total_tokens']
-                    total_cost_all_products += cost
-
-                    # Print the generated description and the cost details
-                    print(description)
-                    print('------------------------------------------------------------------')
-                    print('Total input tokens: ', response['usage']['prompt_tokens'])
-                    print('Total output tokens: ', response['usage']['completion_tokens'])
-                    print('Total tokens for this product: ', response['usage']['total_tokens'])
-                    print('Running total tokens for all products: ', total_tokens_all_products)
-                    print('Running total cost for all products: ', total_cost_all_products)
-                    print('------------------------------------------------------------------')
-                    print('#############################################')
-
-                    # Update the CSV with the cost information
-                    current_row = read_from_csv(total_csv_file, app_settings['url'])
-                    if current_row is None:
-                        # If this URL hasn't been recorded yet, create a new row
-                        write_to_csv(total_csv_file, {'url': app_settings['url'], 'total_cost': total_cost_all_products})
-                    else:
-                        # If it has, update the total cost
-                        existing_total_cost = float(current_row['total_cost'])
-                        new_total_cost = existing_total_cost + total_cost_all_products
-                        update_csv(total_csv_file, app_settings['url'], new_total_cost)
 
                     # Preview the description
                     socketio.emit('log', {'data': f'\n{description}\n'}, namespace='/')
                 
                 # Check if test mode is enabled and if the product count has reached the limit
                 if test_mode > 0 and product_count >= test_mode:
+                    socketio.emit('log', {'data': f'\nTest mode limit reached...'}, namespace='/')
+                    limit_reached = True
                     break
-                
+
                 if test_mode == 0:
 
                     if stop_process:
                         stop()  # Stop process
                         break
 
-                    # Calculate the number of tokens
-                    csv_file_total = 'data/total_costs.csv'
-                    if not os.path.isfile(csv_file_total):
-                        with open(csv_file_total, 'w') as csvfile:
-                            writer = csv.DictWriter(csvfile, fieldnames=['url', 'total_cost'])
-                            writer.writeheader()
-
-                    # Get current total cost
-                    current_row = read_from_csv(csv_file_total, app_settings['url'])
-                    current_total_cost = float(current_row['total_cost']) if current_row is not None else 0
-
                     # Calculate cost
                     cost = calculate_cost(response, app_settings)                
-
-                    # Add to running totals
-                    total_tokens_all_products += response['usage']['total_tokens']
-                    total_cost_all_products += cost
-
-                    # Update the CSV with the cost information
-                    current_row = read_from_csv(csv_file_total, app_settings['url'])
-                    if current_row is None:
-                        # If this URL hasn't been recorded yet, create a new row
-                        write_to_csv(csv_file_total, {'url': app_settings['url'], 'total_cost': total_cost_all_products})
-                    else:
-                        # If it has, update the total cost
-                        existing_total_cost = float(current_row['total_cost'])
-                        new_total_cost = existing_total_cost + total_cost_all_products
-                        update_csv(csv_file_total, app_settings['url'], new_total_cost)
                     
                     # Update the product description
                     updateProduct(product_id, description, app_settings)
@@ -617,31 +535,5 @@ def write_to_csv(file_name, row):
 
         writer.writerow(row)
 
-def read_from_csv(file_name, url):
-    with open(file_name, 'r') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            if row['url'] == url:
-                return row
-    return None
-
-def update_csv(file_name, url, total_cost):
-    # Read all rows
-    rows = []
-    with open(file_name, 'r') as csvfile:
-        reader = csv.DictReader(csvfile)
-        rows = list(reader)
-
-    # Update the row with the matching URL
-    for row in rows:
-        if row['url'] == url:
-            row['total_cost'] = total_cost
-
-    # Write all rows back to the file
-    with open(file_name, 'w', newline='') as csvfile:
-        fieldnames = ['url', 'total_cost']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
 
 ### TO DO - ABORT PROCESS
