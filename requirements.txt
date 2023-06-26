@@ -12,3 +12,4 @@ flask_session
 Flask-Login
 Flask-Dance
 flask_sqlalchemy
+flask-migrate

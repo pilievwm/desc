@@ -9,6 +9,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2-bootstrap-theme/0.1.0-beta.10/select2-bootstrap.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
+
     <script type="text/javascript" charset="utf-8">
         var socket = io.connect('https://' + document.domain + ':' + location.port + '/');
         socket.on('log', function(msg) {
@@ -58,7 +62,7 @@
         <div class="d-flex align-items-center">
             {% if current_user.is_authenticated %}
                 <div class="px-3">{{ current_user.name | default('', true) }}</div>
-                <a href="/logout" class="btn btn-primary">Logout</a>
+                <a href="/logout" class="btn btn-light btn-sm">Logout</a>
             {% endif %}
         </div>
     </div>
@@ -109,7 +113,52 @@
                                 </div>
                             </div>
                         </div>
-                        
+                        <!-- Publishing Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="publishingSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#publishingSettings" aria-expanded="false" aria-controls="publishingSettings">
+                                    Publishing Settings
+                                </button>
+                            </h2>
+                            <div id="publishingSettings" class="accordion-collapse collapse bg-light" aria-labelledby="publishingSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <fieldset>
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_product_description" {% if project.enable_product_description %}checked{% endif %}>
+                                            <label class="form-check-label" for="enable_product_description">Generate Product Description</label>
+                                            <br>
+                                            <small class="text-muted">If enabled, it will include the service <mark>Generate product description</mark></small>
+                                        </div>
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_generate_meta_description" {% if project.enable_generate_meta_description %}checked{% endif %}>
+                                            <label class="form-check-label" for="enable_generate_meta_description">Generate Meta Description</label>
+                                            <br>
+                                            <small class="text-muted">If enabled, it will include the service <mark>generating meta description</mark></small>
+                                        </div>
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_product_short_description" {% if project.enable_product_short_description %}checked{% endif %}>
+                                            <label class="form-check-label" for="enable_product_short_description">Generate Short Description</label>
+                                            <br>
+                                            <small class="text-muted">If enabled, it will include the service <mark>generating shoty description</mark></small>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="test_mode" class="form-label">Publishing Mode for Product description</label>
+                                            <select class="form-select" id="test_mode">
+                                                <option value="0" {% if project.test_mode == 0 %}selected{% endif %}>Update products</option>
+                                                <option value="1" {% if project.test_mode == 1 or project.test_mode is none %}selected{% endif %}>Preview product description for 1 product</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="print_prompt" {% if project.print_prompt %}checked{% endif %}>
+                                            <label class="form-check-label" for="print_prompt">Print Prompt</label>
+                                            <br>
+                                            <small class="text-muted">It will print only the prompt that is used to generate description without generating it!</small>
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
                         <!-- Website Settings -->
                         <div class="accordion-item">
                             <h2 class="accordion-header" id="websiteSettingsHeading">
@@ -142,14 +191,29 @@
                                         </div>
                                     
                                         <div class="mb-3">
+                                            <label for="specific_product" class="form-label">Process only specific product ID:</label>
+                                            <input type="text" class="form-control" id="specific_product" placeholder="Example: 3" value="{{ project.specific_product }}">
+                                            <small class="text-muted">If <mark>empty</mark> it will process all products</small>
+                                        </div>
+
+
+                                        <div class="mb-3">
                                             <label for="only_category" class="form-label">Process only category ID:</label>
-                                            <input type="text" class="form-control" id="only_category" placeholder="Example: 3" value="{{ project.only_category | default('', true) }}">
+                                            <select id="only_category" class="form-control">
+                                                <option value=""></option> 
+                                                <option selected="selected" value="{{ project.only_category | default('', true) }}">{{ project.only_category_name | default('', true) }}</option>
+                                            </select>
+                                            <input type="hidden" id="only_category_name" value="{{ project.only_category_name | default('', true) }}">
                                             <small class="text-muted">If <mark>empty</mark> it will process all products from all categories</small>
                                         </div>
                                     
                                         <div class="mb-3">
                                             <label for="only_vendor" class="form-label">Process only vendor ID:</label>
-                                            <input type="text" class="form-control" id="only_vendor" placeholder="Example: 142" value="{{ project.only_vendor | default('', true) }}">
+                                            <select id="only_vendor" class="form-control">
+                                                <option value=""></option> 
+                                                <option selected="selected" value="{{ project.only_vendor | default('', true) }}">{{ project.only_vendor_name | default('', true) }}</option>
+                                            </select>
+                                            <input type="hidden" id="only_vendor_name" value="{{ project.only_vendor_name | default('', true) }}">
                                             <small class="text-muted">If <mark>empty</mark> it will process all products from all vendors</small>
                                         </div>
                                     
@@ -181,7 +245,79 @@
                             </div>
                         </div>
 
-                        <!-- ext Generate Settings -->
+                        <!-- Short description settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="shortDescriptionSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shortDescriptionSettings" aria-expanded="false" aria-controls="shortDescriptionSettings">
+                                    Short Description Settings
+                                </button>
+                            </h2>
+                            <div id="shortDescriptionSettings" class="accordion-collapse collapse bg-light" aria-labelledby="shortDescriptionSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- Your website settings content here -->
+                                    <fieldset>
+                                        <p class="text-black-50">Please provide what type of information should be included in the generated short descriptions</p>
+                                        <hr md-3>   
+                                        <div class="mb-3">
+                                            <label for="short_length" class="form-label">Length of the short description (in words)</label>
+                                            <input type="range" class="form-range" value="{{ project.short_length | default('', true) }}" min="10" max="700" step="10" id="short_length" oninput="updateShortLengthValue(this.value)">
+                                            <span id="shortLengthValue">{{ project.short_length | default('', true) }}</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="short_temperature" class="form-label">Temperature</label>
+                                            <input type="range" class="form-range" value="{{ project.short_temperature | default('0') }}" min="0" max="2" step="0.1" id="short_temperature" oninput="updateShortTemperatureValue(this.value)">
+                                            <span id="shortTemperatureValue">{{ project.short_temperature | default('0', true) }}</span>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <label for="short_language" class="form-label">Language</label>
+                                            <input type="text" class="form-control" id="short_language" value="{{ project.short_language | default('', true) }}">
+                                        </div>
+
+                                        <hr md-3>                                  
+
+                                        <div class="mb-3">
+                                            <input type="text" class="form-control" id="short_purpose" placeholder="Purpose" value="{{ project.short_purpose | default('', true) }}">
+                                            <small class="text-muted">This is related with the style of writing. Example: <mark>Sales or Marketing or SEO</mark></small>
+                                        </div>
+                                        
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="short_product_name" {% if project.short_product_name %}checked{% endif %}>
+                                            <label class="form-check-label" for="short_product_name">Include Product Name</label>
+                                        </div>
+                        
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="short_description" {% if project.short_description %}checked{% endif %}>
+                                            <label class="form-check-label" for="short_description">Include Description</label>
+                                        </div>
+                        
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="short_vendor_name" {% if project.short_vendor_name %}checked{% endif %}>
+                                            <label class="form-check-label" for="short_vendor_name">Include Vendor Name</label>
+                                        </div>
+                        
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="short_category_name" {% if project.short_category_name %}checked{% endif %}>
+                                            <label class="form-check-label" for="short_category_name">Include Category Name</label>
+                                        </div>
+
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="short_property_option_values" {% if project.short_property_option_values %}checked{% endif %}>
+                                            <label class="form-check-label" for="short_property_option_values">Property Option Values</label>
+                                        </div>
+
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="short_use_website_name" {% if project.short_use_website_name %}checked{% endif %}>
+                                            <label class="form-check-label" for="short_use_website_name">Use Website Name</label>
+                                        </div>
+
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Product description settings -->
                         <div class="accordion-item">
                             <h2 class="accordion-header" id="textGenerateSettingsHeading">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#textGenerateSettings" aria-expanded="false" aria-controls="textGenerateSettings">
@@ -218,28 +354,7 @@
                                             <input type="text" class="form-control" id="language" value="{{ project.language | default('', true) }}">
                                         </div>
 
-                                        <hr md-3>                                    
-
-                                        <div class="mb-3">
-                                            <label for="test_mode" class="form-label">Publishing Mode</label>
-                                            <select class="form-select" id="test_mode">
-                                                <option value="0" {% if project.test_mode == 0 %}selected{% endif %}>Update products</option>
-                                                <option value="1" {% if project.test_mode == 1 or project.test_mode is none %}selected{% endif %}>Preview product description for 1 product</option>
-                                                <option value="2" {% if project.test_mode == 2 %}selected{% endif %}>Preview product description for 2 products</option>
-                                                <option value="3" {% if project.test_mode == 3 %}selected{% endif %}>Preview product description for 3 product</option>
-                                                <option value="4" {% if project.test_mode == 4 %}selected{% endif %}>Preview product description for 4 product</option>
-                                                <option value="5" {% if project.test_mode == 5 %}selected{% endif %}>Preview product description for 5 product</option>
-                                            </select>
-                                        </div>
-
-                                        <div class="mb-3 form-check form-switch">
-                                            <input type="checkbox" class="form-check-input" role="switch" id="print_prompt" {% if project.print_prompt %}checked{% endif %}>
-                                            <label class="form-check-label" for="print_prompt">Print Prompt</label>
-                                            <br>
-                                            <small class="text-muted">If will print only the prompt that is used to generate description without generating it!</small>
-                                        </div>
-
-                                        <hr md-3>
+                                        <hr md-3>                                  
 
                                         <div class="mb-3">
                                             <input type="text" class="form-control" id="purpouse" placeholder="Purpose" value="{{ project.purpouse | default('', true) }}">
@@ -427,10 +542,7 @@
                 <form id="settingsFormSubmit" onsubmit="event.preventDefault(); $('#settingsForm').submit();">
                     <input type="submit" value="Generate and Save" class="btn btn-primary ps-5 pe-5 pb-3 pt-3">
                 </form>
-            </div>
-            
-            </div> 
-            </div>                    
+            </div>                 
         </div>
     </div>
     <script>
@@ -470,12 +582,18 @@
                         "print_prompt": $('#print_prompt').is(':checked'),
                         "only_active": $('#only_active').is(':checked'),
                         "skip_products_with_description": parseInt($('#skip_products_with_description').val()) || 0,
+                        "specific_product": $('#specific_product').val(),
                         "only_category": $('#only_category').val(),
+                        "only_category_name": $('#only_category_name').val(),
                         "only_vendor": $('#only_vendor').val(),
+                        "only_vendor_name": $('#only_vendor_name').val(),
                         "language": $('#language').val(),
                         "niche": $('#niche').val(),
                         "free_delivery_over": parseInt($('#free_delivery_over').val()) || 99999999,
-                        "mention_free_delivery_price": $('#mention_free_delivery_price').is(':checked')
+                        "mention_free_delivery_price": $('#mention_free_delivery_price').is(':checked'),
+                        "enable_product_description": $('#enable_product_description').is(':checked'),
+                        "enable_product_short_description": $('#enable_product_short_description').is(':checked'),
+                        "enable_generate_meta_description": $('#enable_generate_meta_description').is(':checked'),
                     },
                     "seo_settings": {
                         "link_to_product": $('#link_to_product').is(':checked'),
@@ -502,7 +620,7 @@
                     }
                     // Get other SEO and prompt settings data...
                 };
-
+                console.log($('#only_vendor_name').val());
                 // change the color and text of the Generate button, and disable it
                 var $generateButton = $('#settingsFormSubmit input[type="submit"]');
                 $generateButton.prop("disabled", true);
@@ -511,6 +629,8 @@
 
                 let url = window.location.href;
                 let projectId = url.substring(url.lastIndexOf('/') + 1);
+                // Include the project_id in the data object
+                data["project_id"] = projectId;
                 // POST the data as JSON to the new endpoint to save settings
                 fetch('/save_settings/' + projectId, {
                         method: 'POST',
@@ -577,12 +697,18 @@
                 "print_prompt": $('#print_prompt').is(':checked'),
                 "only_active": $('#only_active').is(':checked'),
                 "skip_products_with_description": parseInt($('#skip_products_with_description').val()) || 0,
+                "specific_product": $('#specific_product').val(),
                 "only_category": $('#only_category').val(),
+                "only_category_name": $('#only_category_name').val(),
                 "only_vendor": $('#only_vendor').val(),
+                "only_vendor_name": $('#only_vendor_name').val(),
                 "language": $('#language').val(),
                 "niche": $('#niche').val(),
                 "free_delivery_over": parseInt($('#free_delivery_over').val()) || 99999999,
-                "mention_free_delivery_price": $('#mention_free_delivery_price').is(':checked')
+                "mention_free_delivery_price": $('#mention_free_delivery_price').is(':checked'),
+                "enable_product_description": $('#enable_product_description').is(':checked'),
+                "enable_product_short_description": $('#enable_product_short_description').is(':checked'),
+                "enable_generate_meta_description": $('#enable_generate_meta_description').is(':checked'),
             },
             "seo_settings": {
                 "link_to_product": $('#link_to_product').is(':checked'),
@@ -657,6 +783,105 @@
     });
 </script>
 
+
+<script>
+$(document).ready(function() {
+
+    // Assuming these are the relevant app_settings
+    var data = {
+        "app_settings": {
+            "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
+            "url": $('#url').val(),
+        }
+    };
+
+    $('#only_category').select2({
+        placeholder: "Example: 423",
+        minimumResultsForSearch: Infinity,
+        allowClear: true,
+        minimumInputLength: 0,
+        theme: "bootstrap",
+        ajax: {
+            url: '/get_all_categories',  // URL to the API that returns the categories
+            type: 'POST',
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
+            delay: 50, // wait 250 milliseconds before triggering the request
+            data: function (params) {
+                return JSON.stringify(data);
+            },
+            processResults: function (data) {
+                // Transforms the top-level key of the response object from 'products' to 'results'
+                return {
+                    results: data.categories.map(function(item) {
+                        return {
+                            id: item.id,
+                            text: item.attributes.name // assuming the name is in the 'attributes' object
+                        };
+                    })
+                };
+            },
+            cache: true
+        }
+    }).on('select2:select', function (e) {
+        var data = e.params.data;
+        $('#only_category_name').val(data.text);
+    }).on('select2:unselect', function (e) {
+        $('#only_category_name').val('');
+    });
+
+});  
+</script>
+    
+
+<script>
+$(document).ready(function() {
+
+    // Assuming these are the relevant app_settings
+    var data = {
+        "app_settings": {
+            "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
+            "url": $('#url').val(),
+        }
+    };
+
+    $('#only_vendor').select2({
+        placeholder: "Example: 423",
+        minimumResultsForSearch: Infinity,
+        allowClear: true,
+        minimumInputLength: 0,
+        theme: "bootstrap",
+        ajax: {
+            url: '/get_all_vendors',  // URL to the API that returns the products
+            type: 'POST',
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
+            delay: 50, // wait 250 milliseconds before triggering the request
+            data: function (params) {
+                return JSON.stringify(data);
+            },
+            processResults: function (data) {
+                // Transforms the top-level key of the response object from 'products' to 'results'
+                return {
+                    results: data.vendors.map(function(item) {
+                        return {
+                            id: item.id,
+                            text: item.attributes.name // assuming the name is in the 'attributes' object
+                        };
+                    })
+                };
+            },
+            cache: true
+        }
+    }).on('select2:select', function (e) {
+        var data = e.params.data;
+        $('#only_vendor_name').val(data.text);
+    }).on('select2:unselect', function (e) {
+        $('#only_vendor_name').val('');
+    });
+
+});  
+</script>
     
 
     <script>

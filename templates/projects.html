@@ -22,6 +22,31 @@
             /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
             background: linear-gradient(to right, rgba(102,126,234,1), rgba(118,75,162,1))
         }
+        .small, small {
+            font-size: .78em;
+            color: #000;
+        }
+        .mark {
+            background-color: #f6ebff;
+            padding: .2em .4em;
+            border-radius: .25rem;
+
+        }
+        a {
+            color: #9247cc;
+            text-decoration: none;
+            background-color: transparent;
+        }
+        .fw-light {
+            font-weight: 300;
+            color: rgb(118, 112, 123);
+        }
+        .display-6 {
+            font-size: 1.3rem;
+            font-weight: 300;
+            line-height: 1.2;
+        }
+
     </style>
 
     <title>Projects</title>
@@ -32,7 +57,7 @@
         <div class="d-flex align-items-center">
             {% if current_user.is_authenticated %}
                 <div class="px-3">{{ current_user.name }}</div>
-                <a href="/logout" class="btn btn-primary">Logout</a>
+                <a href="/logout" class="btn btn-light btn-sm">Logout</a>
             {% endif %}
         </div>
     </div>
@@ -44,29 +69,75 @@
                 Add New Project
             </button>
         </div>
-
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th scope="col">ID</th>
-                    <th scope="col">Store URL</th>
-                    <th scope="col">X-CloudCart-ApiKey</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for project in projects %}
-                <tr>
-                    <td>{{ project.id }}</td>
-                    <td>{{ project.store_url }}</td>
-                    <td>{{ project.x_cloudcart_apikey }}</td>
-                    <td><a href="/ai/{{ project.id }}" class="btn btn-outline-primary btn-sm">View Project</a></td>
-                    <td><button class="btn btn-outline-warning btn-sm editProjectButton" data-id="{{ project.id }}" data-bs-toggle="modal" data-bs-target="#editProjectModal">Edit Project</button></td>
-                    <td><button class="btn btn-outline-danger btn-sm deleteProjectButton" data-id="{{ project.id }}">Delete Project</button></td>
-                    
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <div class="table-responsive ">
+            
+            <table class="table lh-lg">
+                <thead>
+                    <tr>
+                        <th scope="col">Store</th>
+                        <th scope="col">GPT-3.5-turbo Statistics</th>
+                        <th scope="col">GPT-4 Statistics</th>
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for project, user_name, stats in projects_statistics %}
+                        <tr class="align-middle">
+                            <td class="lh-sm">
+                                <strong><a href="/ai/{{ project.id }}" class="display-6">{{ project.domain }}</a></strong><br />
+                                <small class="fw-light">Owner:</small> <small>{{ user_name }}</small><br />
+                                <small class="fw-light">Project ID:</small> <small>{{ project.id }}</small><br />
+                                <small class="fw-light">Created at:</small> <small>
+                                    {% if project.created_at %}
+                                        {{ project.created_at.strftime('%d.%m.%Y %H:%M') }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </small><br />
+                                <small class="fw-light">Updated at:</small> <small>
+                                    {% if project.updated_at %}
+                                        {{ project.updated_at.strftime('%d.%m.%Y %H:%M') }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td class="lh-sm">
+                                <small class="fw-light">Prompt tokens:</small> 
+                                <small class="mark">{{ stats['gpt-3.5-turbo'].total_prompt_tokens if 'gpt-3.5-turbo' in stats else '0' }}</small><br />
+                                <small class="fw-light">Completion tokens:</small> 
+                                <small class="mark">{{ stats['gpt-3.5-turbo'].total_completion_tokens if 'gpt-3.5-turbo' in stats else '0' }}</small><br />
+                                <small class="fw-light">Total tokens:</small> 
+                                <small class="mark">{{ stats['gpt-3.5-turbo'].total_tokens if 'gpt-3.5-turbo' in stats else '0' }}</small><br />
+                                <small class="fw-light">Test runs:</small> 
+                                <small class="mark">{{ stats['gpt-3.5-turbo'].total_test_mode if 'gpt-3.5-turbo' in stats else '0' }}</small><br />
+                                <small class="fw-light">Cost:</small> 
+                                <small class="mark">${{ "{:.3f}".format(stats['gpt-3.5-turbo'].total_cost) if 'gpt-3.5-turbo' in stats else '0.00' }}</small>
+                            </td>
+                            <td class="lh-sm">
+                                <small class="fw-light">Prompt tokens:</small> 
+                                <small class="mark">{{ stats['gpt-4'].total_prompt_tokens if 'gpt-4' in stats else '0' }}</small><br />
+                                <small class="fw-light">Completion tokens:</small> 
+                                <small class="mark">{{ stats['gpt-4'].total_completion_tokens if 'gpt-4' in stats else '0' }}</small><br />
+                                <small class="fw-light">Total tokens:</small> 
+                                <small class="mark">{{ stats['gpt-4'].total_tokens if 'gpt-4' in stats else '0' }}</small><br />
+                                <small class="fw-light">Test runs:</small> 
+                                <small class="mark">{{ stats['gpt-4'].total_test_mode if 'gpt-4' in stats else '0' }}</small><br />
+                                <small class="fw-light">Cost:</small> 
+                                <small class="mark">${{ "{:.3f}".format(stats['gpt-4'].total_cost) if 'gpt-4' in stats else '0.00' }}</small>
+                            </td>
+                            <td class="text-end">
+                                <a href="/ai/{{ project.id }}"
+                                    <button class="btn btn-outline-secondary btn-sm editProjectButton">Edit Project</button>
+                                </a>
+                                <button class="btn btn-outline-danger btn-sm deleteProjectButton" data-id="{{ project.id }}">Delete Project</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+        </div>
     </div>
     
     <!-- Modal -->

@@ -1,3 +1,4 @@
+# generator.py
 import requests
 import re
 import openai
@@ -5,12 +6,11 @@ import urllib.parse
 import csv
 import json
 import os
-from flask_socketio import SocketIO, emit, disconnect
 import validators
 import time
+from flask_socketio import SocketIO, emit
+import query
 
-# Global flag to signal stopping the process
-stop_process = False
 
 
 def stop():
@@ -112,28 +112,52 @@ def getProperties(property_id, app_settings):
 
     return data['data']['attributes']['name']
 
-def updateProduct(product_id, description, app_settings):
+
+
+
+def updateProduct(product_id, description, short_description, meta_description, app_settings):
     headers = {
         'X-CloudCart-ApiKey': app_settings['X-CloudCart-ApiKey'],
         'Content-Type': 'application/vnd.api+json',
     }
     url = f"{app_settings['url']}/api/v2/products/{product_id}"
 
+    attributes = {
+        key: value 
+        for key, value in [
+            ("description", description), 
+            ("short_description", short_description)
+
+        ] 
+        if value  # This condition filters out empty values
+    }   
+
     body = {
         "data": {
             "type": "products",
             "id": str(product_id),
-            "attributes": {
-                "description": description
-            }
+            "attributes": attributes
         }
     }
 
-    response = requests.patch(url, data=json.dumps(body), headers=headers)
-    if response.status_code != 200:
-        raise Exception(f"Request to {url} failed with status code {response.status_code}. The response was: {response.text}")
-    
-    return response.json()
+    max_retries = 15
+
+    for attempt in range(max_retries):
+        try:
+            response = requests.patch(url, data=json.dumps(body), headers=headers)
+            if response.status_code in (429, 500, 502, 503):  # Retry for status codes 500 and 503
+                raise Exception(f"Request to {url} failed with status code {response.status_code}. The response was: {response.text}")
+            elif response.status_code != 200:  # For other non-200 status codes, fail immediately
+                raise Exception(f"Request to {url} failed with status code {response.status_code}. The response was: {response.text}")
+            
+            return response.json()  # If request was successful, break out of the loop and return the response
+        except Exception as e:
+            if attempt < max_retries - 1:  # If it's not the last attempt, wait and then continue to the next iteration
+                wait_time = 5 * (attempt + 1)
+                socketio.emit('log', {'data': f"Error occured at CloudCart. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+                time.sleep(wait_time)
+            else:  # On the last attempt, fail with an exception
+                raise
 
 def get_keywords(seo_settings, app_settings, product):
     if seo_settings['use_keywords'] == 0:
@@ -153,10 +177,13 @@ def get_keywords(seo_settings, app_settings, product):
             )
             # If the request was successful, break out of the loop
             break
-        except openai.error.ApiError as e:
-            if e.http_status == 500 or e.http_status == 503:
+        except openai.error.APIConnectionError as e:  # replace ApiError with APIConnectionError
+            if e.http_status in [500, 502, 503]:  # include 502 status code
+
                 # Wait for a bit before retrying and print an error message
                 wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
+                socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+
                 print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
                 time.sleep(wait_time)
             else:
@@ -169,7 +196,93 @@ def get_keywords(seo_settings, app_settings, product):
     # Do something with the response, e.g., print the message content
     return(response['choices'][0]['message']['content'])
 
+def generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description):
 
+    if app_settings['print_prompt']:
+        socketio.emit('log', {'data': f"\Meta description prompt: {prompt}"}, namespace='/')
+        return(prompt)
+
+    if seo_settings['use_keywords'] == 0:
+        prompt = f'You are skilled SEO expert at the online store: {app_settings["url"]}. Craft a meta description that effectively communicates the unique value proposition from the product desctiption: {description}. Write it in {app_settings["language"]} language, and the meta descritpion text should entices users to click on our website in search results by using emoji and other symbols (here is an example of good meta description: "Shop for High Heels Under 500 in India * Buy latest range of High Heels Under 500 at Myntra* Free Shipping # COD * Easy returns and exchanges."). The lenght of the meta description should be no more than 140 - 150 character range\n'
+    else:
+        prompt = f'You are skilled SEO expert at the online store: {app_settings["url"]}. Craft a meta description that effectively communicates the unique value proposition from the product desctiption: {description}. Be sure to use the right keywords ({seo_settings["use_keywords"]})in your meta description that are the most relevant. Write it in {app_settings["language"]} language, and the meta descritpion text should entices users to click on our website in search results by using emoji and other symbols (here is an example of good meta description: "Shop for High Heels Under 500 in India * Buy latest range of High Heels Under 500 at Myntra* Free Shipping # COD * Easy returns and exchanges."). The lenght of the meta description should be no more than 140 - 150 character range\n'
+
+
+    max_retries = 15
+
+    for attempt in range(max_retries):
+        try:
+            response = openai.ChatCompletion.create(
+                model=app_settings['model'],
+                messages=[
+                    {"role": "user", "content": prompt}
+                                                    ],
+                temperature=app_settings['temperature'],
+            )
+            # If the request was successful, break out of the loop
+            break
+        except openai.error.APIConnectionError as e:  # replace ApiError with APIConnectionError
+            if e.http_status in [500, 502, 503]:  # include 502 status code
+
+                # Wait for a bit before retrying and print an error message
+                wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
+                socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+
+                print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
+                time.sleep(wait_time)
+            else:
+                # If it's a different error, we raise it to stop the program
+                raise
+    else:
+        # If we've exhausted the maximum number of retries, we raise an exception
+        raise Exception("Maximum number of retries exceeded.")
+
+    # Do something with the response, e.g., print the message content
+    return(response['choices'][0]['message']['content'])
+
+def generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings):
+
+    if description is None:
+        description = ''
+
+    if seo_settings['use_keywords'] == 0:
+        prompt = f'You are skilled SEO expert at the online store: {app_settings["url"]}. Craft a meta description that effectively communicates the unique value proposition from the product desctiption: {description}. Write it in {app_settings["language"]} language, and the meta descritpion text should entices users to click on our website in search results by using emoji and other symbols (here is an example of good meta description: "Shop for High Heels Under 500 in India * Buy latest range of High Heels Under 500 at Myntra* Free Shipping # COD * Easy returns and exchanges."). The lenght of the meta description should be no more than 140 - 150 character range\n'
+    else:
+        prompt = f'You are skilled SEO expert at the online store: {app_settings["url"]}. Craft a meta description that effectively communicates the unique value proposition from the product desctiption: {description}. Be sure to use the right keywords ({seo_settings["use_keywords"]})in your meta description that are the most relevant. Write it in {app_settings["language"]} language, and the meta descritpion text should entices users to click on our website in search results by using emoji and other symbols (here is an example of good meta description: "Shop for High Heels Under 500 in India * Buy latest range of High Heels Under 500 at Myntra* Free Shipping # COD * Easy returns and exchanges."). The lenght of the meta description should be no more than 140 - 150 character range\n'
+    if app_settings['print_prompt']:
+        socketio.emit('log', {'data': f"\Description prompt: {prompt}"}, namespace='/')
+        return
+    max_retries = 15
+
+    for attempt in range(max_retries):
+        try:
+            response = openai.ChatCompletion.create(
+                model=app_settings['model'],
+                messages=[
+                    {"role": "user", "content": prompt}
+                                                    ],
+                temperature=app_settings['temperature'],
+            )
+            # If the request was successful, break out of the loop
+            break
+        except openai.error.APIConnectionError as e:  # replace ApiError with APIConnectionError
+            if e.http_status in [500, 502, 503]:  # include 502 status code
+
+                # Wait for a bit before retrying and print an error message
+                wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
+                socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+
+                print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
+                time.sleep(wait_time)
+            else:
+                # If it's a different error, we raise it to stop the program
+                raise
+    else:
+        # If we've exhausted the maximum number of retries, we raise an exception
+        raise Exception("Maximum number of retries exceeded.")
+
+    # Do something with the response, e.g., print the message content
+    return response
 
 def create_prompt(product, prompt_settings, app_settings, seo_settings):
     # Initialize an empty string for the prompt
@@ -257,107 +370,89 @@ def create_prompt(product, prompt_settings, app_settings, seo_settings):
     return prompt
 
 
-def get_all_products(app_settings):
-
-    headers = {
-        'X-CloudCart-ApiKey': app_settings['X-CloudCart-ApiKey'],
-    }
+def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt_settings, project_id):
+    global stop_process
+    stop_process = False
     
     processed_products = []
     socketio.emit('log', {'data': f'Started...'}, namespace='/')
  
     # Build the base URL
     url = f"{app_settings['url']}/api/v2/products"
-
+    
     if not validators.url(url):
         raise Exception("The URL provided in 'app_settings' is not valid")
-
-
-    # Build the base URL
-    url = f"{app_settings['url']}/api/v2/products"
-
-    # Build the filters based on app_settings
-    filters = {}
-    if app_settings['only_active']:
-        filters['filter[active]'] = 'yes'
-    if app_settings['only_category']:
-        filters['filter[category_id]'] = app_settings['only_category']
-    if app_settings['only_vendor']:
-        filters['filter[vendor_id]'] = app_settings['only_vendor']
-
-    # Add the filters to the URL
-    if filters:
-        url += '?' + urllib.parse.urlencode(filters)
 
     # Set the OpenAI key
     openai.api_key = app_settings['openai_key']
 
-    total_tokens_all_products = 0
-    total_cost_all_products = 0
+    # Build the filters based on app_settings
     product_count = 0  # add a counter for products processed
     test_mode = app_settings['test_mode']  # Get the test mode value from settings
     description = ''  # Initialize the description variable
-    #if test_mode > 0:
+    short_description = ''  # Initialize the short_description variable
+    meta_description = ''  # Initialize the meta_description variable
+    enable_product_description = app_settings['enable_product_description']
+    enable_generate_meta_description = app_settings['enable_generate_meta_description']  # Get the enable_generate_meta_description value from settings
+    enable_product_short_description = app_settings['enable_product_short_description']  # Get the enable_generate_short_description value from settings
+    headers = {
+        'X-CloudCart-ApiKey': app_settings['X-CloudCart-ApiKey'],
+    }
+
+    ##############################################
+    ########## PROCESS SPECIFIC PRODUCT ##########
+    ##############################################
+
+    if app_settings.get('specific_product'):
         
-        ##### TO DO make Get current total cost #####
+        url = f"{app_settings['url']}/api/v2/products"
+        url += '/' + app_settings['specific_product']
+        ################# PROCESS SPECIFIC PRODUCT #################
 
-        ############################################
-    
-    ####### Reset the flag for stopping the process #######
-    #reset_stop()
-
-    limit_reached = False
-
-    while url and not limit_reached:
-
-        ####### Check if the process has been stopped by the user #######
-
-        global stop_process
         if stop_process:
             socketio.emit('log', {'data': 'Process stopped by user.'}, namespace='/')
-            stop()  # Stop process
-            break
+            stop()  # Stop processexit
+            return
 
         response = requests.get(url, headers=headers)
         data = response.json()
 
         if 'data' in data:
-            total_products = data['meta']['page']['total']   # get the total number of products
-            for product in data['data']:
 
-                product_count += 1  # increment the counter for each product processed
-                product_id = product['id']
+            product_id = data['data']['id']
+            task_id = None
+            details = get_product_details(product_id, app_settings)
 
-                details = get_product_details(product_id, app_settings)
+            # Skip product with short descriptions
+            if app_settings['skip_products_with_description'] > 0 and len(details['description'].split()) > app_settings['skip_products_with_description']:
+                socketio.emit('log', {'data': f"\nProduct: {details['name']} has more than {app_settings['skip_products_with_description']} words.\nSkipped product..."}, namespace='/')
+                return
+            
+            # Build the product dictionary
+            product_dict = {
+                'product_id': product_id,
+                'product_name': details['name'],
+                'url_handle': details['url_handle'],
+                'price_from': details['price_from'],
+                'short_description': details['short_description'],
+                'description': details['description'],
+                'vendor_name': details['vendor_name'],
+                'vendor_slug': details['vendor_slug'],
+                'category_name': details['category_name'],
+                'category_slug': details['category_slug'],
+                'property_option_values': details['property_option_values']
+            }
 
-                # Skip products with short descriptions
-                if app_settings['skip_products_with_description'] > 0 and len(details['description'].split()) > app_settings['skip_products_with_description']:
-                    continue
-                
-                # Build the product dictionary
-                product_dict = {
-                    'product_id': product_id,
-                    'product_name': details['name'],
-                    'url_handle': details['url_handle'],
-                    'price_from': details['price_from'],
-                    'short_description': details['short_description'],
-                    'description': details['description'],
-                    'vendor_name': details['vendor_name'],
-                    'vendor_slug': details['vendor_slug'],
-                    'category_name': details['category_name'],
-                    'category_slug': details['category_slug'],
-                    'property_option_values': details['property_option_values']
-                }
-                
-                
+            ############## CHECK IF PRODUCT DESCRIPTION IS ENABLED ##############
+            if enable_product_description:
                 # Create a prompt for each product
+
                 prompt = create_prompt(product_dict, prompt_settings, app_settings, seo_settings)
                 if app_settings['print_prompt']:
                     socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"}, namespace='/')
-                
+                    socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
                     return(prompt)
-                socketio.emit('log', {'data': f"Processing product {product_count} of {total_products} with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"}, namespace='/')
-                
+                socketio.emit('log', {'data': f"Processing product with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"}, namespace='/')
                 
                 # Get the response from OpenAI
                 max_retries = 15
@@ -374,10 +469,13 @@ def get_all_products(app_settings):
                         )
                         # If the request was successful, break out of the loop
                         break
-                    except openai.error.ApiError as e:
-                        if e.http_status == 500 or e.http_status == 503:
+                    except openai.error.APIConnectionError as e:  # replace ApiError with APIConnectionError
+                        if e.http_status in [500, 502, 503]:  # include 502 status code
+
                             # Wait for a bit before retrying and print an error message
                             wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
+                            socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+
                             print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
                             time.sleep(wait_time)
                         else:
@@ -389,48 +487,282 @@ def get_all_products(app_settings):
 
                 description = response['choices'][0]['message']['content']
 
-                
                 ##### TEST MODE ONLY #####
                 if test_mode != 0:
 
                     if stop_process:
                         stop()  # Stop process
-                        break
-                        
-                    ###### TO DO Get current total cost ######
-
-                    #########################################
-
+                        return
+                    
                     # Calculate cost
-                    cost = calculate_cost(response, app_settings)                
+                    cost = cost_statistics_all(response, app_settings)                
 
-                    # Preview the description
+                    ###### Save statistics ###### 
+                    task_id = "product_description"
+
+
+                    query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=1)
+
+                    ###### Emit the description to the client ######
                     socketio.emit('log', {'data': f'\n{description}\n'}, namespace='/')
+    
+                    
                 
-                # Check if test mode is enabled and if the product count has reached the limit
-                if test_mode > 0 and product_count >= test_mode:
-                    socketio.emit('log', {'data': f'\nTest mode limit reached...'}, namespace='/')
-                    limit_reached = True
-                    break
-
+                ##### LIVE MODE #####
                 if test_mode == 0:
 
                     if stop_process:
                         stop()  # Stop process
-                        break
+                        return
 
                     # Calculate cost
-                    cost = calculate_cost(response, app_settings)                
+                    cost = cost_statistics_all(response, app_settings) 
+                    
+                    ###### Save statistics ######
+                    task_id = "product"
+                    query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
                     
                     # Update the product description
-                    updateProduct(product_id, description, app_settings)
+                    updateProduct(product_id, description, short_description, meta_description, app_settings)
                     socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."}, namespace='/')
-            
-        ###### NEXT PAGE ######
-        url = data['links']['next'] if 'next' in data['links'] else None
 
-    ###### EXIT THE LOOP ######
+            if enable_product_short_description:
+                socketio.emit('log', {'data': f'\nShort description generation...'}, namespace='/')
+                # Create a prompt for each product
+
+                
+                response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings)
+                short_description = response['choices'][0]['message']['content']
+
+                ##### TEST MODE ONLY #####
+                if test_mode != 0:
+
+                    if stop_process:
+                        stop()  # Stop process
+                        return             
+
+                    # Calculate cost
+                    cost = cost_statistics_all(response, app_settings)                
+
+                    ###### Save statistics ###### 
+                    task_id = "short_description"
+
+                    query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=1)
+
+                    ###### Emit the description to the client ######
+                    socketio.emit('log', {'data': f'\n{short_description}\n'}, namespace='/')
+
+                ##### LIVE MODE #####
+                if test_mode == 0:
+
+                    if stop_process:
+                        stop()  # Stop process
+                        return
+
+                    # Calculate cost
+                    cost = cost_statistics_all(response, app_settings) 
+                    
+                    ###### Save statistics ######
+                    task_id = "short_description"
+                    query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
+                    
+                    # Update the product description
+                    updateProduct(product_id, description, short_description, meta_description, app_settings)
+                    socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."}, namespace='/')
+
+        ###### EXIT THE LOOP ######
+        socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
+
+    ###############################################
+    ########## PROCESS MULTIPLE PRODUCTS ##########
+    ###############################################
+    else:
+        # Global flag to signal stopping the process
+        limit_reached = False
+        # Build the base URL
+        url = f"{app_settings['url']}/api/v2/products"
+
+        # Build the filters based on app_settings
+        filters = {}
+        if app_settings['only_active']:
+            filters['filter[active]'] = 'yes'
+        if app_settings['only_category']:
+            filters['filter[category_id]'] = app_settings['only_category']
+        if app_settings['only_vendor']:
+            filters['filter[vendor_id]'] = app_settings['only_vendor']
+        if filters:
+            url += '?' + urllib.parse.urlencode(filters)
+        
+
+        while url and not limit_reached:
+            
+            ####### Check if the process has been stopped by the user #######
+            if stop_process:
+                socketio.emit('log', {'data': 'Process stopped by user.'}, namespace='/')
+                stop()  # Stop process
+                break
+
+            response = requests.get(url, headers=headers)
+            data = response.json()
+
+            if 'data' in data:
+                total_products = data['meta']['page']['total']   # get the total number of products
+                for product in data['data']:
+
+                    product_count += 1  # increment the counter for each product processed
+                    product_id = product['id']
+
+                    details = get_product_details(product_id, app_settings)
+                    # Skip products with short descriptions
+                    if app_settings['skip_products_with_description'] > 0 and len(details['description'].split()) > app_settings['skip_products_with_description']:
+                        continue
+                    
+                    # Build the product dictionary
+                    product_dict = {
+                        'product_id': product_id,
+                        'product_name': details['name'],
+                        'url_handle': details['url_handle'],
+                        'price_from': details['price_from'],
+                        'short_description': details['short_description'],
+                        'description': details['description'],
+                        'vendor_name': details['vendor_name'],
+                        'vendor_slug': details['vendor_slug'],
+                        'category_name': details['category_name'],
+                        'category_slug': details['category_slug'],
+                        'property_option_values': details['property_option_values']
+                    }
+
+                    ############## CHECK IF PRODUCT DESCRIPTION IS ENABLED ##############
+                    if enable_product_description:
+
+                        # Create a prompt for each product
+                        prompt = create_prompt(product_dict, prompt_settings, app_settings, seo_settings)
+                        if app_settings['print_prompt']:
+                            socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"}, namespace='/')
+                            socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
+                            return(prompt)
+                        socketio.emit('log', {'data': f"Processing product with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"}, namespace='/')
+                        
+                        # Get the response from OpenAI
+                        max_retries = 15
+
+                        for attempt in range(max_retries):
+                            try:
+                                response = openai.ChatCompletion.create(
+                                    model=app_settings['model'],
+                                    messages=[
+                                        {"role": "user", "content": prompt},
+                                        {"role": "system", "content": "You must add html tags to the text and you must bold important parts and words! Do not use H1 tags, use H2 and H3 tags instead! The links at the text should be accross the entire text not only at the end!"},
+                                    ],
+                                    temperature=app_settings['temperature'],
+                                )
+                                # If the request was successful, break out of the loop
+                                break
+                            except openai.error.APIConnectionError as e:  # replace ApiError with APIConnectionError
+                                if e.http_status in [500, 502, 503]:  # include 502 status code
+
+                                    # Wait for a bit before retrying and print an error message
+                                    wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
+                                    socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+
+                                    print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
+                                    time.sleep(wait_time)
+                                else:
+                                    # If it's a different error, we raise it to stop the program
+                                    raise
+                        else:
+                            # If we've exhausted the maximum number of retries, we raise an exception
+                            raise Exception("Maximum number of retries exceeded.")
+
+                        description = response['choices'][0]['message']['content']
+                        ##### TEST MODE ONLY #####
+                        if test_mode != 0:
+
+                            if stop_process:
+                                stop()  # Stop process
+                                return
+                            
+                            # Calculate cost
+                            cost = cost_statistics_all(response, app_settings)                
+
+                            ###### Save statistics ###### 
+                            task_id = "product_description"
+                            query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=1)
+
+                            ###### Emit the description to the client ######
+                            socketio.emit('log', {'data': f'\n{description}\n'}, namespace='/')
+                    
+                        """
+                        ##### LIVE MODE #####
+                        if test_mode == 0:
+
+                            if stop_process:
+                                stop()  # Stop process
+                                return
+
+                            # Calculate cost
+                            cost = cost_statistics_all(response, app_settings) 
+                            
+                            ###### Save statistics ######
+                            task_id = "product"
+                            query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
+                            
+                            # Update the product description
+                            updateProduct(product_id, description, short_description, meta_description, app_settings)
+                            socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."}, namespace='/')
+                        """
+                    if enable_product_short_description:
+                        socketio.emit('log', {'data': f'Short description generation...'}, namespace='/')
+                        # Create a prompt for each product
+                        
+                        response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings)
+                        short_description = response['choices'][0]['message']['content']
+                        ##### TEST MODE ONLY #####
+                        if test_mode != 0:
+                            if stop_process:
+                                stop()  # Stop process
+                                return             
+
+                            # Calculate cost
+                            cost = cost_statistics_all(response, app_settings)                
+
+                            ###### Save statistics ###### 
+                            task_id = "short_description"
+                            query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=1)
+
+                            ###### Emit the description to the client ######
+                            socketio.emit('log', {'data': f'\n{short_description}\n'}, namespace='/')
+                        
+                        
+                    ##### LIVE MODE #####
+                    if test_mode == 0:
+
+                        if stop_process:
+                            stop()  # Stop process
+                            return
+
+                        # Calculate cost
+                        cost = cost_statistics_all(response, app_settings) 
+                        
+                        ###### Save statistics ######
+                        task_id = "short_description"
+                        query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
+                        
+                        # Update the product description
+                        updateProduct(product_id, description, short_description, meta_description, app_settings)
+                        socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."}, namespace='/')
+                    # Check if test mode is enabled and if the product count has reached the limit
+                    if test_mode > 0:
+                        socketio.emit('log', {'data': f'\nTest mode completed...'}, namespace='/')
+                        limit_reached = True
+                        return
+            ###### NEXT PAGE ######
+            url = data['links']['next'] if 'next' in data['links'] else None
+            socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
     socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
+    return(200)
+        
+        
         
 
 def calculate_all(app_settings):
@@ -498,15 +830,149 @@ def getProducts(app_settings):
     # Add the filters to the URL
     if filters:
         url += '?' + urllib.parse.urlencode(filters)
- 
+    
+    max_retries = 15
+
+    for attempt in range(max_retries):
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code in (429, 500, 502, 503):  # Retry for status codes 429, 500, 502, and 503
+                raise Exception(f"Request to {url} failed with status code {response.status_code}. The response was: {response.text}")
+            elif response.status_code != 200:  # For other non-200 status codes, fail immediately
+                raise Exception(f"Request to {url} failed with status code {response.status_code}. The response was: {response.text}")
+            
+            data = response.json()
+            total_products = data['meta']['page']['total']
+            return total_products  # If request was successful, break out of the loop and return the total_products
+        except Exception as e:
+            if attempt < max_retries - 1:  # If it's not the last attempt, wait and then continue to the next iteration
+                wait_time = 5 * (attempt + 1)
+                socketio.emit('log', {'data': f"Error occured at CloudCart. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+                time.sleep(wait_time)
+            else:  # On the last attempt, fail with an exception
+                raise
 
 
-    response = requests.get(url, headers=headers)
-    data = response.json()
-    total_products = data['meta']['page']['total']
 
-    return total_products
 
+def getCategories(app_settings):
+    headers = {
+        'X-CloudCart-ApiKey': app_settings['X-CloudCart-ApiKey'],
+    }
+
+    # Build the base URL
+    url = f"{app_settings['url']}/api/v2/categories"
+
+    if not validators.url(url):
+        raise Exception("The URL provided in 'app_settings' is not valid")
+    
+    categories = []
+    max_retries = 15
+
+    while url:
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, headers=headers)
+                if response.status_code != 200:
+                    raise Exception(f"Request to {url} failed with status code {response.status_code}. The response was: {response.text}")
+
+                data = response.json()
+                
+                # Add the data from this page to our list of categories
+                categories.extend(data['data'])
+
+                # Get the next page URL, if it exists
+                url = None
+                if "next" in data["links"]:
+                    url = data["links"]["next"]
+
+                # If request was successful, break out of the loop
+                break
+
+            except Exception as e:
+                if attempt < max_retries - 1:  # If it's not the last attempt, wait and then continue to the next iteration
+                    wait_time = 5 * (attempt + 1)
+                    print(f"Error occured at CloudCart. Waiting for {wait_time} seconds before retrying.")
+                    time.sleep(wait_time)
+                else:  # On the last attempt, fail with an exception
+                    raise
+
+    return categories
+
+
+def getVendors(app_settings):
+    headers = {
+        'X-CloudCart-ApiKey': app_settings['X-CloudCart-ApiKey'],
+    }
+
+    # Build the base URL
+    url = f"{app_settings['url']}/api/v2/vendors"
+
+    if not validators.url(url):
+        raise Exception("The URL provided in 'app_settings' is not valid")
+    
+    vendors = []
+    max_retries = 15
+
+    while url:
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, headers=headers)
+                if response.status_code != 200:
+                    raise Exception(f"Request to {url} failed with status code {response.status_code}. The response was: {response.text}")
+
+                data = response.json()
+                
+                # Add the data from this page to our list of vendors
+                vendors.extend(data['data'])
+        
+                # Get the next page URL, if it exists
+                url = None
+                if "next" in data["links"]:
+                    url = data["links"]["next"]
+
+                # If request was successful, break out of the loop
+                break
+
+            except Exception as e:
+                if attempt < max_retries - 1:  # If it's not the last attempt, wait and then continue to the next iteration
+                    wait_time = 5 * (attempt + 1)
+                    print(f"Error occured at CloudCart. Waiting for {wait_time} seconds before retrying.")
+                    time.sleep(wait_time)
+                else:  # On the last attempt, fail with an exception
+                    raise
+
+    return vendors
+
+
+def cost_statistics_all(response, app_settings):
+
+    tokens_per_word = 4.33  # approx conversion from words to tokens
+    seo_package_multiplier = 1.57
+    cloudcart_price_multiplier_gpt_3_5 = 99
+    cloudcart_price_multiplier_gpt_4 = 7
+
+    gpt3_completion_price = 0.0035 / 1000
+    gpt4_completion_price = 0.09 / 1000
+
+
+    # Get the total tokens from the response
+    total_tokens = response['usage']['total_tokens']
+
+    # Determine the price per token
+    if app_settings['model'] == 'gpt-3.5-turbo':
+        price_per_token = gpt3_completion_price * cloudcart_price_multiplier_gpt_3_5
+    else:
+        price_per_token = gpt4_completion_price * cloudcart_price_multiplier_gpt_4
+
+
+    # Calculate cost
+    if app_settings['use_seo_package']:
+        cost = total_tokens * seo_package_multiplier * price_per_token
+    else:
+        cost = total_tokens * price_per_token
+
+    return cost
 
 def calculate_cost(response, app_settings):
     gpt3_completion_price = 0.000002

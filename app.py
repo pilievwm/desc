@@ -1,10 +1,11 @@
 from flask import Flask, request, jsonify, render_template, flash, redirect, url_for, abort, session
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func, desc, asc, and_, or_, not_
+from sqlalchemy import func, desc, asc, and_, or_, not_, case, select, update, Integer, String, Float, DateTime, Boolean, ForeignKey
 from sqlalchemy.exc import OperationalError, NoResultFound
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_dance.contrib.google import make_google_blueprint, google
 from flask_dance.consumer import oauth_authorized
+from flask_migrate import Migrate
 from oauthlib.oauth2.rfc6749.errors import InvalidClientIdError
 from requests.models import MissingSchema
 from flask_socketio import SocketIO, emit
@@ -12,13 +13,15 @@ from dotenv import load_dotenv
 from flask import Flask, session
 from flask_session import Session
 from urllib.parse import urlparse
+from models import create_statistics, create_user_class, create_project_class
 import sys
-import generator
+from generator import stop, get_all_products, calculate_all, set_socketio, getCategories, getVendors
 import socket
 import os
 import logging
 import traceback
-
+from datetime import datetime
+from collections import namedtuple, defaultdict
 
 
 app = Flask(__name__)
@@ -39,68 +42,23 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 os.makedirs(os.path.join(basedir, 'database'), exist_ok=True)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'database/test.db')
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 session = db.session
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login' # Redirect to Google login if user is not logged in
 
-
 # Load .env file
 load_dotenv()  
+
+########## Database Models ##########
+User = create_user_class(db)
+Project = create_project_class(db)
+Statistics = create_statistics(db)
 
 socketio = SocketIO(app, manage_session=False)
 
 user_data = {}  # Here's where you'd store user data
-
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True)
-    email = db.Column(db.String(120), unique=True)
-
-class Project(db.Model):
-    __tablename__ = 'project'
-    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    x_cloudcart_apikey = db.Column(db.String(128))
-    model = db.Column(db.String(128))
-    temperature = db.Column(db.Integer, nullable=True)
-    store_url = db.Column(db.String(128))
-    website_name = db.Column(db.String(128), nullable=True)
-    use_seo_package = db.Column(db.Boolean)
-    currency = db.Column(db.String(128))
-    length = db.Column(db.Integer)
-    test_mode = db.Column(db.Integer)
-    print_prompt = db.Column(db.Boolean)
-    only_active = db.Column(db.Boolean)
-    skip_products_with_description = db.Column(db.Integer)
-    only_category = db.Column(db.String(128))
-    only_vendor = db.Column(db.String(128))
-    language = db.Column(db.String(128))
-    niche = db.Column(db.String(128))
-    free_delivery_over = db.Column(db.Integer)
-    mention_free_delivery_price = db.Column(db.Boolean)
-    link_to_product = db.Column(db.Boolean)
-    link_to_category = db.Column(db.Boolean)
-    link_to_vendor = db.Column(db.Boolean)
-    link_to_more_from_same_vendor_and_category = db.Column(db.Boolean)
-    use_keywords = db.Column(db.Integer)
-    keywords_density = db.Column(db.Integer)
-    use_free_keywords = db.Column(db.String(128))
-    link_keyword_to_product = db.Column(db.Boolean)
-    link_keyword_density = db.Column(db.Integer)
-    purpouse = db.Column(db.String(128))
-    product_name = db.Column(db.Boolean)
-    price_from = db.Column(db.Boolean)
-    show_price = db.Column(db.Boolean)
-    short_description = db.Column(db.Boolean)
-    description = db.Column(db.Boolean)
-    vendor_name = db.Column(db.Boolean)
-    category_name = db.Column(db.Boolean)
-    property_option_values = db.Column(db.Boolean)
-    use_website_name = db.Column(db.Boolean)
-    user_id = db.Column(db.Integer, nullable=False)
-    domain = db.Column(db.String(128))
-
-
 
 ########## SocketIO ##########
 
@@ -118,7 +76,7 @@ def disconnect_handler():
 def logs_connect():
     socketio.emit('log', {'data': f'Connected to the backend app...'}, namespace='/')
 
-generator.set_socketio(socketio)
+set_socketio(socketio)
 
 # Enable logging
 #logging.basicConfig(filename='app.log', level=logging.DEBUG)
@@ -158,6 +116,7 @@ def google_logged_in(blueprint, token):
     google_user_id = str(google_info["id"])
 
     # Find this OAuth token in the database, or create it
+    
     query = User.query.filter_by(email=google_info["email"])
     
     try:
@@ -187,16 +146,91 @@ create_tables()
 ########## Routes ##########
 
 @app.route('/stop_process', methods=['POST'])
+@login_required
 def stop_process():
-    generator.stop()  # Call the function from generator.py
+    stop()  # Call the function from generator.py
     return 'Process stopped.'
 
 @app.route('/')
 @login_required
 def index():
-    projects = Project.query.filter_by(user_id=current_user.id).order_by(desc(Project.id)).all()
+    # Define the model names
+    model_names = ['gpt-3.5-turbo', 'gpt-4']
+
+    # Get the list of all unique project IDs for the current user, or all projects if the user_id is 1 or 2
+    if current_user.id in [1, 2]:  # if the user is 1 or 2, get all project ids
+        project_ids = session.query(Project.id).distinct()
+    else:  # else get only the current user's project ids
+        project_ids = session.query(Project.id).join(User, User.id == Project.user_id).filter(User.id == current_user.id).distinct()
+
+    # Fetch project and user name details for the current user, or all projects if the user_id is 1 or 2
+    if current_user.id in [1, 2]:  # if the user is 1 or 2, get all projects
+        project_user_data = session.query(Project, User.name).join(User, User.id == Project.user_id).all()
+    else:  # else get only the current user's projects
+        project_user_data = session.query(Project, User.name).join(User, User.id == Project.user_id).filter(User.id == current_user.id).all()
+
+    statistics = []
+
+    for project_id in project_ids:
+        for model_name in model_names:
+            stat = session.query(
+                Statistics.project_id, 
+                Statistics.model,
+                func.sum(Statistics.prompt_tokens).label('total_prompt_tokens'),
+                func.sum(Statistics.completion_tokens).label('total_completion_tokens'),
+                func.sum(Statistics.total_tokens).label('total_tokens'),
+                func.sum(Statistics.cost).label('total_cost'),
+                func.sum((Statistics.test_mode.isnot(None)).cast(Integer)).label('total_test_mode')
+            ).join(Project, Project.id == Statistics.project_id
+            ).join(User, User.id == Project.user_id
+            ).filter(Project.id == project_id[0],
+                    Statistics.model == model_name
+            ).group_by(Statistics.project_id,  
+                        Statistics.model
+            ).first()
+
+            # If stat is None, create an entry with zeros
+            if stat is None:
+                stat_dict = {
+                    'project_id': project_id[0],
+                    'model': model_name,
+                    'total_prompt_tokens': 0,
+                    'total_completion_tokens': 0,
+                    'total_tokens': 0,
+                    'total_cost': 0.0,
+                    'total_test_mode': 0
+                }
+            else:
+                stat_dict = {
+                    'project_id': stat.project_id,
+                    'model': stat.model,
+                    'total_prompt_tokens': stat.total_prompt_tokens,
+                    'total_completion_tokens': stat.total_completion_tokens,
+                    'total_tokens': stat.total_tokens,
+                    'total_cost': stat.total_cost,
+                    'total_test_mode': stat.total_test_mode
+                }
+
+            statistics.append(stat_dict)
+
+    grouped_statistics = {}
+    for stat in statistics:
+        if stat['project_id'] not in grouped_statistics:
+            grouped_statistics[stat['project_id']] = {
+                'gpt-3.5-turbo': {},
+                'gpt-4': {}
+            }
+        grouped_statistics[stat['project_id']][stat['model']] = stat
+
+    projects_statistics = []
+    for project, user_name in project_user_data:
+        if project.id in grouped_statistics:
+            projects_statistics.append((project, user_name, grouped_statistics[project.id]))
+
     app.logger.info('Render index page')  # Logging example
-    return render_template('projects.html', projects=projects)
+    return render_template('projects.html', projects_statistics=projects_statistics)  # Pass the list of dictionaries to the template
+
+
 
 
 @app.route('/ai/<int:project_id>')
@@ -213,6 +247,7 @@ def mypage(project_id):
     return render_template('ind.html', project=project)
 
 @app.route('/calculate', methods=['POST'])
+@login_required
 def calculate():
     data = request.get_json()
 
@@ -221,19 +256,16 @@ def calculate():
         return jsonify({'error': 'No data provided'}), 400
 
     try:
-        generator.app_settings = data.get('app_settings')
-        generator.seo_settings = data.get('seo_settings')
-        generator.prompt_settings = data.get('prompt_settings')
-
-        generator.calculate_all(generator.app_settings)
+        app_settings = data.get('app_settings')
+        calculate_all(app_settings)
 
         return jsonify({'status': 'success'}), 200
     except KeyError as e:
-
+        tb = traceback.format_exc()  # get the traceback
         socketio.emit('log', {'data': f'Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'}, namespace='/')
         return jsonify({'error': f"The key '{str(e)}' was not found in the data. Please check your data source."}), 500
     except MissingSchema as e:
-
+        tb = traceback.format_exc()  # get the traceback
         socketio.emit('log', {'data': f'{str(e)}'}, namespace='/')
         return jsonify({'error': 'First you need to add some credentials like: X-CloudCart-ApiKey and OpenAI Key!'}), 500
     except Exception as e:
@@ -243,28 +275,32 @@ def calculate():
 
 
 @app.route('/set', methods=['POST'])
+@login_required
 def set_settings():
     data = request.get_json()
 
-    if not data:
+    project_id = data.get('project_id')  # Get project_id from the data
+
+    if not data or not project_id:  # Check if both data and project_id are present
         app.logger.error('No data provided')  # Logging example
         return jsonify({'error': 'No data provided'}), 400
     
     try:
         # Assign the settings
-        generator.app_settings = data.get('app_settings')
-        generator.seo_settings = data.get('seo_settings')
-        generator.prompt_settings = data.get('prompt_settings')
+        app_settings = data.get('app_settings')
+        seo_settings = data.get('seo_settings')
+        prompt_settings = data.get('prompt_settings')
 
         # Validate the data here if needed...
 
         # Call the function with the provided settings
-        gener = generator.get_all_products(generator.app_settings)
+        
+        get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt_settings, project_id)
 
         
         return jsonify({'status': 'success'}), 200
     except KeyError as e:
-
+        tb = traceback.format_exc()  # get the traceback
         socketio.emit('log', {'data': f'Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'}, namespace='/')
         return jsonify({'error': f"The key '{str(e)}' was not found in the data. Please check your data source."}), 500
 
@@ -299,26 +335,38 @@ def new_project():
         store_url = request.form.get('store_url')
         x_cloudcart_apikey = request.form.get('x_cloudcart_apikey')
 
-        # Extract domain from the URL
+        if not store_url.startswith(('http://', 'https://')):
+            # If the URL doesn't start with http:// or https://, add it
+            store_url = 'http://' + store_url
+
         parsed_url = urlparse(store_url)
         domain_only = parsed_url.netloc
 
         # Query the database to check if a project with the given domain already exists
         existing_project = Project.query.filter(func.lower(Project.domain) == func.lower(domain_only)).first()
 
-        if existing_project is not None:
-            # If a project with the given domain already exists, return an error message
-            return jsonify({'error': 'A project with this store URL already exists.'}), 400
-
         # If no existing project was found, create a new project
         project = Project(
             store_url=store_url,
             domain=domain_only,
             x_cloudcart_apikey=x_cloudcart_apikey,
-            user_id=current_user.id
+            user_id=current_user.id,
+            created_at=datetime.now()
         )
 
         db.session.add(project)
+        db.session.commit()
+
+        new_statistics = Statistics(
+            project_id=project.id,  # Here is where you access the id of the new project
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            cost=0
+        )
+
+        # Add and commit new statistics to write it to the database
+        db.session.add(new_statistics)
         db.session.commit()
 
         return jsonify({'message': 'Project successfully created.'})
@@ -344,6 +392,7 @@ def edit_project(project_id):
 
     project.store_url = store_url
     project.x_cloudcart_apikey = x_cloudcart_apikey
+    project.updated_at = datetime.now()
 
     db.session.commit()
 
@@ -352,6 +401,7 @@ def edit_project(project_id):
 
 ### DELETE PROJECT ###
 @app.route('/projects/<int:project_id>', methods=['DELETE'])
+@login_required
 def delete_project(project_id):
     project = session.get(Project, project_id)
 
@@ -364,6 +414,7 @@ def delete_project(project_id):
 
 ### SAVE SETTINGS ###
 @app.route('/save_settings/<int:project_id>', methods=['POST'])
+@login_required
 def save_settings(project_id):
     data = request.get_json()
     
@@ -393,7 +444,10 @@ def save_settings(project_id):
         "only_active": "only_active",
         "skip_products_with_description": "skip_products_with_description",
         "only_category": "only_category",
+        "only_category_name": "only_category_name",
         "only_vendor": "only_vendor",
+        "only_vendor_name": "only_vendor_name",
+        "specific_product": "specific_product",
         "language": "language",
         "niche": "niche",
         "free_delivery_over": "free_delivery_over",
@@ -418,6 +472,9 @@ def save_settings(project_id):
         "property_option_values": "property_option_values",
         "use_website_name": "use_website_name",
         "domain": "domain_only",
+        "enable_product_description": "enable_product_description",
+        "enable_generate_meta_description": "enable_generate_meta_description",
+        "enable_product_short_description": "enable_product_short_description",
     }
 
     # Update project settings
@@ -431,11 +488,49 @@ def save_settings(project_id):
         parsed_url = urlparse(store_url)
         domain = parsed_url.netloc
         project.domain = domain
+    project.updated_at = datetime.now()
 
     db.session.commit()
 
     return jsonify({'message': 'Settings saved successfully.'})
 
+@app.route('/get_all_categories', methods=['POST'])
+@login_required
+def get_categories():
+    data = request.get_json()
+    if not data:  # Check if both data and project_id are present
+        app.logger.error('No data provided')  # Logging example
+        return jsonify({'error': 'No data provided'}), 400
+
+    try:
+        # Assign the settings
+        app_settings = data.get('app_settings')
+        categories = getCategories(app_settings)
+        return jsonify({'status': 'success', 'categories': categories}), 200  # return products in the response
+    except KeyError as e:
+        tb = traceback.format_exc()  # get the traceback
+        socketio.emit('log', {'data': f'{str(e)}\n{tb}'}, namespace='/')
+        app.logger.error('KeyError: ' + str(e))  # Logging example
+        return jsonify({'status': 'error', 'message': 'A KeyError occurred'}), 500  # return an error status in case of a KeyError 
+
+@app.route('/get_all_vendors', methods=['POST'])
+@login_required
+def get_vendors():
+    data = request.get_json()
+    if not data:  # Check if both data and project_id are present
+        app.logger.error('No data provided')  # Logging example
+        return jsonify({'error': 'No data provided'}), 400
+
+    try:
+        # Assign the settings
+        app_settings = data.get('app_settings')
+        vendors = getVendors(app_settings)
+        return jsonify({'status': 'success', 'vendors': vendors}), 200  # return products in the response
+    except KeyError as e:
+        tb = traceback.format_exc()  # get the traceback
+        socketio.emit('log', {'data': f'{str(e)}\n{tb}'}, namespace='/')
+        app.logger.error('KeyError: ' + str(e))  # Logging example
+        return jsonify({'status': 'error', 'message': 'A KeyError occurred'}), 500  # return an error status in case of a KeyError 
 
 
 
@@ -448,6 +543,7 @@ def get_ip_address():
     ip_address = s.getsockname()[0]
     s.close()
     return ip_address
+
 
 
 if __name__ == "__main__":
