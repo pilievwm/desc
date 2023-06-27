@@ -49,6 +49,10 @@
         .table-striped tbody tr:nth-of-type(odd) {
             background-color: #fefcff;
         }
+        .nav-link, .nav-link:hover {
+            color: #fff;
+            text-decoration: none;
+        }
 
     </style>
 
@@ -59,8 +63,17 @@
         <div>CloudCart AI Content Generator</div>
         <div class="d-flex align-items-center">
             {% if current_user.is_authenticated %}
-                <div class="px-3">{{ current_user.name }}</div>
-                <a href="/logout" class="btn btn-light btn-sm">Logout</a>
+            <ul class="nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">{{ current_user.name }}</a>
+                    <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="/">Projects</a></li>
+                    <li><a class="dropdown-item" href="/users">Users</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a href="/logout" class="dropdown-item">Logout</a></li>
+                    </ul>
+                </li>
+            </ul>
             {% endif %}
         </div>
     </div>
@@ -217,8 +230,7 @@
     </div>
 
     <!-- Optional JavaScript; choose one of the two! -->
-
-    
+        
     <script>
         $(document).ready(function() {
             var projectIdToDelete;

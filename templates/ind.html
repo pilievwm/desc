@@ -53,6 +53,10 @@
             /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
             background: linear-gradient(to right, rgba(102,126,234,1), rgba(118,75,162,1))
         }
+        .nav-link, .nav-link:hover {
+            color: #fff;
+            text-decoration: none;
+        }
     </style>
 </head>
 <body>
@@ -65,15 +69,24 @@
         
         <div class="d-flex align-items-center">
             {% if current_user.is_authenticated %}
-                <div class="px-3">{{ current_user.name | default('', true) }}</div>
-                <a href="/logout" class="btn btn-light btn-sm">Logout</a>
+            <ul class="nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">{{ current_user.name }}</a>
+                    <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="/">Projects</a></li>
+                    <li><a class="dropdown-item" href="/users">Users</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a href="/logout" class="dropdown-item">Logout</a></li>
+                    </ul>
+                </li>
+            </ul>
             {% endif %}
         </div>
     </div>
     
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <form id="settingsForm" class="mb-1">
                     <div class="accordion" id="settingsAccordion">
                         <!-- General Settings -->
@@ -84,8 +97,8 @@
                                 </button>
                             </h2>
                             <div id="generalSettings" class="accordion-collapse collapse show bg-light" aria-labelledby="generalSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <!-- App Settings Inputs -->
                                 <div class="accordion-body">
-                                    <!-- App Settings Inputs -->
                                 <fieldset>
                                     <p class="text-black-50">Please provide the general configuration for the application.</p>
                                 
@@ -128,7 +141,7 @@
                                 <div class="accordion-body">
                                     <fieldset>
                                         <div class="mb-3 form-check form-switch">
-                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_product_description" {% if project.enable_product_description %}checked{% endif %}>
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_product_description" {% if project.enable_product_description %}checked{% endif %} onchange="toggleDescriptionAccordeon()">
                                             <label class="form-check-label" for="enable_product_description">Generate Product Description</label>
                                             <br>
                                             <small class="text-muted">If enabled, it will include the service <mark>Generate product description</mark></small>
@@ -140,7 +153,7 @@
                                             <small class="text-muted">If enabled, it will include the service <mark>generating meta description</mark></small>
                                         </div>
                                         <div class="mb-3 form-check form-switch">
-                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_product_short_description" {% if project.enable_product_short_description %}checked{% endif %}>
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_product_short_description" {% if project.enable_product_short_description %}checked{% endif %} onchange="toggleShortDescriptionAccordeon()">
                                             <label class="form-check-label" for="enable_product_short_description">Generate Short Description</label>
                                             <br>
                                             <small class="text-muted">If enabled, it will include the service <mark>generating shoty description</mark></small>
@@ -250,7 +263,7 @@
                         </div>
 
                         <!-- Short description settings -->
-                        <div class="accordion-item">
+                        <div class="accordion-item" id="product_short_description" style="display: none;">
                             <h2 class="accordion-header" id="shortDescriptionSettingsHeading">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shortDescriptionSettings" aria-expanded="false" aria-controls="shortDescriptionSettings">
                                     Short Description Settings
@@ -264,66 +277,73 @@
                                         <hr md-3>   
                                         <div class="mb-3">
                                             <label for="short_length" class="form-label">Length of the short description (in words)</label>
-                                            <input type="range" class="form-range" value="{{ project.short_length | default('', true) }}" min="10" max="700" step="10" id="short_length" oninput="updateShortLengthValue(this.value)">
-                                            <span id="shortLengthValue">{{ project.short_length | default('', true) }}</span>
+                                            <input type="range" class="form-range" value="{{ project.short_length | default(5, true) }}" min="5" max="100" step="5" id="short_length" oninput="updateShortLengthValue(this.value)">
+                                            <span id="shortLengthValue">{{ project.short_length | default(5, true) }}</span>
                                         </div>
 
                                         <div class="mb-3">
                                             <label for="short_temperature" class="form-label">Temperature</label>
-                                            <input type="range" class="form-range" value="{{ project.short_temperature | default('0') }}" min="0" max="2" step="0.1" id="short_temperature" oninput="updateShortTemperatureValue(this.value)">
-                                            <span id="shortTemperatureValue">{{ project.short_temperature | default('0', true) }}</span>
+                                            <input type="range" class="form-range" value="{{ project.short_temperature | default(0, true) }}" min="0" max="2" step="0.1" id="short_temperature" oninput="updateShortTemperatureValue(this.value)">
+                                            <span id="shortTemperatureValue">{{ project.short_temperature | default(0, true) }}</span>
                                         </div>
                                         </script>
                                         
                                         <div class="mb-3">
                                             <label for="short_language" class="form-label">Language</label>
                                             <input type="text" class="form-control" id="short_language" value="{{ project.short_language | default('', true) }}">
+                                            <small class="text-muted">You can write any language here. Example: <mark>fluent Bulgarian</mark></small>
                                         </div>
 
                                         <hr md-3>                                  
 
                                         <div class="mb-3">
-                                            <input type="text" class="form-control" id="short_purpose" placeholder="Purpose" value="{{ project.short_purpose | default('', true) }}">
-                                            <small class="text-muted">This is related with the style of writing. Example: <mark>Sales or Marketing or SEO</mark></small>
+                                            <label class="form-label">GPT Role</label>
+                                            <input type="text" class="form-control" id="short_purpose" placeholder="Tell the GPT its role..." value="{{ project.short_purpose | default('', true) }}">
+                                            <small class="text-muted">Whith this field the prompt to GPT is started. The prompt starts with: <mark>You are ... (<i>here is your text</i>) .... copywriter</mark></small>
+                                            <small class="text-muted">This is related with the style of writing. Example: <mark>Sales or Marketing or SEO.</mark></small>
                                         </div>
-                                        
+                                        <hr md-3> 
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="short_product_name" {% if project.short_product_name %}checked{% endif %}>
                                             <label class="form-check-label" for="short_product_name">Include Product Name</label>
                                         </div>
-                        
+                                        <hr md-3> 
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="short_short_description" {% if project.short_short_description %}checked{% endif %}>
                                             <label class="form-check-label" for="short_short_description">Include Short Description</label>
                                         </div>
-                        
+                                        <hr md-3> 
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="short_vendor_name" {% if project.short_vendor_name %}checked{% endif %}>
                                             <label class="form-check-label" for="short_vendor_name">Include Vendor Name</label>
                                         </div>
-                        
+                                        <hr md-3> 
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="short_category_name" {% if project.short_category_name %}checked{% endif %}>
                                             <label class="form-check-label" for="short_category_name">Include Category Name</label>
                                         </div>
-
+                                        <hr md-3> 
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="short_property_option_values" {% if project.short_property_option_values %}checked{% endif %}>
                                             <label class="form-check-label" for="short_property_option_values">Property Option Values</label>
                                         </div>
-
+                                        <hr md-3> 
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="short_use_website_name" {% if project.short_use_website_name %}checked{% endif %}>
                                             <label class="form-check-label" for="short_use_website_name">Use Website Name</label>
                                         </div>
-
+                                        <hr md-3> 
+                                        <div class="md-3">
+                                            <label class="form-label" for="short_additional_instructions">Additional instructions</label>
+                                            <textarea class="form-control" id="short_additional_instructions" rows="3">{{ project.short_additional_instructions | default('', true) }}</textarea>
+                                        </div>
                                     </fieldset>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Product description settings -->
-                        <div class="accordion-item">
+                        <div class="accordion-item" id="product_description" style="display: none;">
                             <h2 class="accordion-header" id="textGenerateSettingsHeading">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#textGenerateSettings" aria-expanded="false" aria-controls="textGenerateSettings">
                                     Product Description Settings
@@ -337,80 +357,90 @@
                                         <hr md-3>   
                                         <div class="mb-3">
                                             <label for="length" class="form-label">Lenght of the description (in words)</label>
-                                            <input type="range" class="form-range" value="{{ project.length | default('', true) }}" min="10" max="700" step="10" id="length" oninput="updateLengthValue(this.value)">
-                                            <span id="lengthValue">{{ project.length | default('', true) }}</span>
+                                            <input type="range" class="form-range" value="{{ project.length | default(10, true) }}" min="10" max="700" step="10" id="length" oninput="updateLengthValue(this.value)">
+                                            <span id="lengthValue">{{ project.length | default(10, true) }}</span>
                                         </div>
 
                                         <div class="mb-3">
                                             <label for="temperature" class="form-label">Temperature</label>
-                                            <input type="range" class="form-range" value="{{ project.temperature | default('0') }}" min="0" max="2" step="0.1" id="temperature" oninput="updateTemperatureValue(this.value)">
-                                            <span id="temperatureValue">{{ project.temperature | default('0', true) }}</span>
+                                            <input type="range" class="form-range" value="{{ project.temperature | default(0, true) }}" min="0" max="2" step="0.1" id="temperature" oninput="updateTemperatureValue(this.value)">
+                                            <span id="temperatureValue">{{ project.temperature | default(0, true) }}</span>
                                         </div>
 
                                         <div class="mb-3">
                                             <label for="language" class="form-label">Language</label>
                                             <input type="text" class="form-control" id="language" value="{{ project.language | default('', true) }}">
+                                            <small class="text-muted">You can write any language here. Example: <mark>fluent Bulgarian</mark></small>
                                         </div>
 
                                         <hr md-3>                                  
 
                                         <div class="mb-3">
-                                            <input type="text" class="form-control" id="purpouse" placeholder="Purpose" value="{{ project.purpouse | default('', true) }}">
-                                            <small class="text-muted">This is related with the style of writing. Example: <mark>Sales or Marketing or SEO</mark></small>
+                                            <label class="form-label">GPT Role</label>
+                                            <input type="text" class="form-control" id="purpouse" placeholder="Tell the GPT its role..." value="{{ project.purpouse | default('', true) }}">
+                                            <small class="text-muted">Whith this field the prompt to GPT is started. The prompt starts with: <mark>You are ... (<i>here is your text</i>) .... copywriter</mark></small>
+                                            <small class="text-muted">This is related with the style of writing. Example: <mark>Sales or Marketing or SEO.</mark></small>
                                         </div>
-                                    
+                                        <hr md-3>
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="product_name" {% if project.product_name %}checked{% endif %}>
                                             <label class="form-check-label" for="product_name">Include Product Name</label>
                                         </div>
-                                    
+                                        <hr md-3>
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="price_from" {% if project.price_from %}checked{% endif %}>
-                                            <label class="form-check-label" for="price_from">Include Price From</label>
+                                            <label class="form-check-label" for="price_from">Consider Product Price </label><br />
+                                            <smal class="text-muted">It is required if you will use free delivery mention. This option <mark>DOES NOT</mark> include the price into the text</smal>
                                         </div>
-                                    
+                                        <hr md-3>
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="show_price" {% if project.show_price %}checked{% endif %}>
-                                            <label class="form-check-label" for="show_price">Include Price Reference</label>
+                                            <label class="form-check-label" for="show_price">Include The Price</label>
                                             <br>
-                                            <small class="text-muted">If enabled, it will include the actual price of the product</small>
+                                            <small class="text-muted">If enabled, it will <mark>include the actual price of the product</mark></small>
                                         </div>
-                                    
+                                        <hr md-3>
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="short_description" {% if project.short_description %}checked{% endif %}>
                                             <label class="form-check-label" for="short_description">Include Short Description</label>
                                             <br>
                                             <small class="text-muted">May increase the price of the service because of the lenght of the prompt. Enable it <mark>Only</mark> if there is valuable information</small>
                                         </div>
-                                    
+                                        <hr md-3>
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="description" {% if project.description %}checked{% endif %}>
                                             <label class="form-check-label" for="description">Include Description</label>
                                             <br>
                                             <small class="text-muted">May increase the price of the service because of the lenght of the prompt. Enable it <mark>Only</mark> if you want to keep parts of the current description.</small>
                                         </div>
-                                    
+                                        <hr md-3>
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="vendor_name" {% if project.vendor_name %}checked{% endif %}>
                                             <label class="form-check-label" for="vendor_name">Include Vendor Name</label>
                                         </div>
-                                    
-                                        <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="category_name" {% if project.category_name %}checked{% endif %}>
-                                            <label class="form-check-label" for="category_name">Include Category Name</label>
+                                        <hr md-3>
+                                        <div class="form-check form-switch" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                        title="This is your tooltip text">
+                                            <input class="form-check-input" type="checkbox" id="category_name" 
+                                                   {% if project.category_name %}checked{% endif %}>
+                                            <label class="form-check-label" for="category_name" >Include Category Name</label>
                                         </div>
-                                    
+                                        
+                                        <hr md-3>
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="property_option_values" {% if project.property_option_values %}checked{% endif %}>
                                             <label class="form-check-label" for="property_option_values">Property Option Values</label>
                                         </div>
-                                    
+                                        <hr md-3>
                                         <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="use_website_name" {% if project.use_website_name %}checked{% endif %}>
                                             <label class="form-check-label" for="use_website_name">Use Website Name</label>
                                         </div>
-
-
+                                        <hr md-3>
+                                        <div class="md-3">
+                                            <label class="form-label" for="additional_instructions">Additional instructions</label>
+                                            <textarea class="form-control" id="additional_instructions" rows="3">{{ project.additional_instructions | default('', true) }}</textarea>
+                                        </div>
                                     </fieldset>
                                 </div>
                             </div>
@@ -523,20 +553,19 @@
                     </div>
                 </form>
     </div>
-    <div class="col-md-9">
+    <div class="col-md-8">
         <div class="card" style="position: sticky; top: 0;">
             <div class="card-header border-0">
-                Terminal
+                <a href="" id="clear-records-button">Terminal</a>
             </div>
             <div class="card-body p-0">
-                <pre id="output" class="border p-2 m-3" style="height: 65vh; overflow: auto; background-color: black; color: lime; white-space: pre-wrap;">
+                <pre id="output" class="border p-2 m-3" style="height: 72vh; overflow: auto; background-color: black; color: rgb(244, 244, 244); white-space: pre-wrap;">
                 </pre>
             </div>
             <div class="d-flex justify-content-between m-3">
                 <div>
                     <button id="stopButton" type="button" class="btn btn-danger ps-5 pe-5 pb-3 pt-3">Cancel the process</button>
                     <button id="calculateButton" class="btn btn-secondary ps-5 pe-5 pb-3 pt-3">Calculate</button>
-                    <button id="clear-records-button" class="btn btn-outline-warning ps-5 pe-5 pb-3 pt-3">Clear Processed Records</button>
                 </div>
                 <form id="settingsFormSubmit" onsubmit="event.preventDefault(); $('#settingsForm').submit();">
                     <input type="submit" value="Generate and Save" class="btn btn-primary ps-5 pe-5 pb-3 pt-3">
@@ -544,12 +573,56 @@
             </div>                 
         </div>
     </div>
-    <script>
-        window.onload = function() {
-          if (document.getElementById('use_seo_package').checked) {
-            document.getElementById('seo_fields').style.display = 'block';
-          }
-        }
+    
+        <script>
+            window.onload = function() {
+            if (document.getElementById('use_seo_package').checked) {
+                document.getElementById('seo_fields').style.display = 'block';
+            }
+            /// hide product short description accordeaon when enable_product_short_description is false
+            if (document.getElementById('enable_product_short_description').checked) {
+                document.getElementById('product_short_description').style.display = 'block';
+            }
+            if (document.getElementById('enable_product_description').checked) {
+                document.getElementById('product_description').style.display = 'block';
+            }};
+        </script>
+        <script>
+            function toggleSEOSettings() {
+                var checkBox = document.getElementById("use_seo_package");
+                var seoFields = document.getElementById("seo_fields");
+                if (checkBox.checked == true){
+                    seoFields.style.display = "block";
+                } else {
+                    seoFields.style.display = "none";
+                }
+            }
+        </script>
+        <script>
+            function toggleShortDescriptionAccordeon() {
+                var checkBox = document.getElementById("enable_product_short_description");
+                var hideShortDesc = document.getElementById("product_short_description");
+                if (checkBox.checked == true){
+                    console.log('checked');
+                    hideShortDesc.style.display = "block";
+                } else {
+                    hideShortDesc.style.display = "none";
+                    console.log('unchecked');
+                }
+            }
+        </script>
+        <script>
+            function toggleDescriptionAccordeon() {
+                var checkBox = document.getElementById("enable_product_description");
+                var hideProductDesc = document.getElementById("product_description");
+                if (checkBox.checked == true){
+                    console.log('checked');
+                    hideProductDesc.style.display = "block";
+                } else {
+                    hideProductDesc.style.display = "none";
+                    console.log('unchecked');
+                }
+            }
         </script>
     <script>
         function updateTemperatureValue(val) {
@@ -611,6 +684,7 @@
                         "short_category_name": $('#short_category_name').is(':checked'),
                         "short_property_option_values": $('#short_property_option_values').is(':checked'),
                         "short_use_website_name": $('#short_use_website_name').is(':checked'),
+                        "short_additional_instructions": $('#short_additional_instructions').val(),
 
                     },
                     "seo_settings": {
@@ -634,7 +708,8 @@
                         "vendor_name": $('#vendor_name').is(':checked'),
                         "category_name": $('#category_name').is(':checked'),
                         "property_option_values": $('#property_option_values').is(':checked'),
-                        "use_website_name": $('#use_website_name').is(':checked')
+                        "use_website_name": $('#use_website_name').is(':checked'),
+                        "additional_instructions": $('#additional_instructions').val(),
                     }
                     // Get other SEO and prompt settings data...
                 };
@@ -750,7 +825,8 @@
                 "vendor_name": $('#vendor_name').is(':checked'),
                 "category_name": $('#category_name').is(':checked'),
                 "property_option_values": $('#property_option_values').is(':checked'),
-                "use_website_name": $('#use_website_name').is(':checked')
+                "use_website_name": $('#use_website_name').is(':checked'),
+                "additional_instructions": $('#additional_instructions').val(),
             }
             // Get other SEO and prompt settings data...
         };
@@ -930,18 +1006,7 @@ $(document).ready(function() {
 </script>
     
 
-    <script>
-        function toggleSEOSettings() {
-            var checkBox = document.getElementById("use_seo_package");
-            var seoFields = document.getElementById("seo_fields");
-            if (checkBox.checked == true){
-                seoFields.style.display = "block";
-            } else {
-                seoFields.style.display = "none";
-            }
-        }
 
-    </script>
 
     
         

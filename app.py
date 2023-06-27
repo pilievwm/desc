@@ -21,6 +21,7 @@ import os
 import logging
 import traceback
 from datetime import datetime
+from functools import wraps
 
 
 app = Flask(__name__)
@@ -136,6 +137,25 @@ def google_logged_in(blueprint, token):
     login_user(user)
     return redirect(url_for('index')) 
 
+####### AUTH ROUTES #######
+@app.route('/login')
+def login():
+    return render_template('login.html')
+
+@app.route('/logout', methods=['GET'])
+@login_required
+def logout():
+    logout_user()
+    flash("You have logged out.", category="success")
+    return redirect(url_for('logout'))
+
+def super_user_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.super_user:
+            abort(403)
+        return f(*args, **kwargs)
+    return decorated_function
 
 ########## Database ##########
 def create_tables():
@@ -237,20 +257,24 @@ def index():
     return render_template('projects.html', projects_statistics=projects_statistics)  # Pass the list of dictionaries to the template
 
 
-
+@app.route('/users')
+@login_required
+def users():
+    users = User.query.all()
+    return render_template('users.html', users=users)
 
 @app.route('/ai/<int:project_id>')
 @login_required
 def mypage(project_id):
     project = session.get(Project, project_id)
 
-
-    # If the project does not exist or does not belong to the current user
-    if project is None or project.user_id != current_user.id:
+    # If the project does not exist or does not belong to the current user, and the current user is not a super_user
+    if project is None or (project.user_id != current_user.id and not current_user.super_user):
         return index()
 
     app.logger.info('Render AI page')  # Logging example
     return render_template('ind.html', project=project)
+
 
 @app.route('/clear_processed_records', methods=['POST'])
 @login_required
@@ -330,21 +354,49 @@ def set_settings():
         socketio.emit('log', {'data': f'{str(e)}\n{tb}'},room=str(project_id), namespace='/')
         return jsonify({'error': str(e)}), 500
     
-####### AUTH ROUTES #######
-@app.route('/login')
-def login():
-    return render_template('login.html')
 
-@app.route('/logout', methods=['GET'])
-@login_required
-def logout():
-    logout_user()
-    flash("You have logged out.", category="success")
-    return redirect(url_for('logout'))
 
 ####### PROJECTS ROUTES #######
 
 ### ADD NEW PROJECT ###
+@app.route('/create_user', methods=['POST'])
+@login_required
+@super_user_required
+def create_user():
+    
+    data = request.get_json()  # Get data sent as JSON
+
+    # Retrieve data from form submission
+    name = data.get('name')
+    email = data.get('email')
+    is_super_user = data.get('super_user')
+    
+    # Check if user already exists by email
+    existing_user_email = User.query.filter_by(email=email).first()
+    if existing_user_email is not None:
+        return jsonify({"error": "A user with this email already exists."}), 400
+
+    # Create new user
+    new_user = User(name=name, email=email, super_user=is_super_user)
+    db.session.add(new_user)
+    db.session.commit()
+    
+    return jsonify({"message": "User created successfully."}), 200
+
+@app.route('/delete_user/<int:user_id>', methods=['POST'])
+@login_required
+@super_user_required
+def delete_user(user_id):
+    user = User.query.get(user_id)
+    if user is None:
+        return jsonify({"error": "User not found."}), 404
+
+    db.session.delete(user)
+    db.session.commit()
+    
+    return jsonify({"message": "User deleted successfully."}), 200
+
+
 @app.route('/projects/new', methods=['GET', 'POST'])
 @login_required
 def new_project():
@@ -502,6 +554,8 @@ def save_settings(project_id):
         "short_category_name": "short_category_name",
         "short_property_option_values": "short_property_option_values",
         "short_use_website_name": "short_use_website_name",
+        "short_additional_instructions": "short_additional_instructions",
+        "additional_instructions": "additional_instructions",
     }
 
     # Update project settings

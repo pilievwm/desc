@@ -38,8 +38,9 @@ def create_processed(db):
 def create_user_class(db):
     class User(UserMixin, db.Model):
         id = db.Column(db.Integer, primary_key=True)
-        name = db.Column(db.String(50), unique=True)
-        email = db.Column(db.String(120), unique=True)
+        name = db.Column(db.String(100), nullable=False)
+        email = db.Column(db.String(100), nullable=False, unique=True)
+        super_user = db.Column(db.Boolean, default=False)
     return User
 
 def create_project_class(db):
@@ -104,4 +105,6 @@ def create_project_class(db):
         short_category_name = db.Column(db.Boolean, nullable=True)
         short_property_option_values = db.Column(db.Boolean, nullable=True)
         short_use_website_name = db.Column(db.Boolean, nullable=True)
+        short_additional_instructions = db.Column(db.Text, nullable=True)
+        additional_instructions = db.Column(db.Text, nullable=True)
     return Project

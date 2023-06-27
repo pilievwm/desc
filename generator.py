@@ -239,15 +239,11 @@ def generate_meta_description(product_dict, prompt_settings, app_settings, seo_s
     # Do something with the response, e.g., print the message content
     return response
 
-def generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings, short_description_settings, project_id):
+def generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings, short_description_settings, project_id, prompt):
 
     if description is None:
         description = ''
-
-    if seo_settings['use_keywords'] == 0:
-        prompt = f'You are skilled SEO expert at the online store: {app_settings["url"]}. Craft a meta description that effectively communicates the unique value proposition from the product desctiption: {description}. Write it in {app_settings["language"]} language, and the meta descritpion text should entices users to click on our website in search results by using emoji and other symbols (here is an example of good meta description: "Shop for High Heels Under 500 in India * Buy latest range of High Heels Under 500 at Myntra* Free Shipping # COD * Easy returns and exchanges."). The lenght of the meta description should be no more than 140 - 150 character range\n'
-    else:
-        prompt = f'You are skilled SEO expert at the online store: {app_settings["url"]}. Craft a meta description that effectively communicates the unique value proposition from the product desctiption: {description}. Be sure to use the right keywords ({seo_settings["use_keywords"]})in your meta description that are the most relevant. Write it in {app_settings["language"]} language, and the meta descritpion text should entices users to click on our website in search results by using emoji and other symbols (here is an example of good meta description: "Shop for High Heels Under 500 in India * Buy latest range of High Heels Under 500 at Myntra* Free Shipping # COD * Easy returns and exchanges."). The lenght of the meta description should be no more than 140 - 150 character range\n'
+    
     if app_settings['print_prompt']:
         socketio.emit('log', {'data': f"Description prompt: {prompt}"},room=str(project_id), namespace='/')
         return
@@ -304,8 +300,8 @@ def create_prompt(product, prompt_settings, app_settings, seo_settings):
 
     # Main instructions
     prompt += f'Strictly follow the instructions step by step! \nMain instructions: \n'
-    prompt += f"You are {app_settings['niche']} and {prompt_settings['purpouse']} copywriter at {app_settings['website_name']}. This product description is published online at \"{app_settings['website_name']}\" (do not invite the user to go to the store, he is already there!). You are writing and adapting the entire text in {app_settings['language']} language. \n"
-    prompt += f"The product description must be in no more than {app_settings['length']} words and its purpouse is for \"{prompt_settings['purpouse']}\".\n"
+    prompt += f"You are {prompt_settings['purpouse']} copywriter at {app_settings['website_name']} that operates in {app_settings['niche']} niche. This product description is published online at \"{app_settings['website_name']}\" (do not invite the user to go to the store, he is already there!). You are writing and adapting the entire text in {app_settings['language']} language.\n"
+    prompt += f"The product description must be in no more than {app_settings['length']} words and its purpouse is for \"{prompt_settings['purpouse']}\".\n\n"
 
     # SEO and Keywords instructions
     if app_settings['use_seo_package']:
@@ -316,7 +312,7 @@ def create_prompt(product, prompt_settings, app_settings, seo_settings):
             free_keywords = f'and you must combine it with the best relevant keywords from here: \"{seo_settings["use_free_keywords"]}\"'
             prompt += f'You are skilled SEO expert. Research ONLY the top {seo_settings["use_keywords"]} long-tail keywords, from the title of this product {free_keywords} in {app_settings["language"]} language. Use the category \"{product["category_name"]}\" and the brand \"{product["vendor_name"]}\" only if you are absolutly sure that the information is critical for the top long-tail keyword. Please note that I want only the words without any other explanations from your side! Return the keywords by comma separated. \n'
         if seo_settings['link_keyword_to_product']:
-            prompt += f"In addition, you must make at least {seo_settings['link_keyword_density']} links to that keywords with this link: {keyword_product_link}. \n"
+            prompt += f"In addition, you must make at least {seo_settings['link_keyword_density']} links to that keywords with this link: {keyword_product_link}.\n"
         if seo_settings['link_to_product']:
             prompt += f"add this link to one of the product titles: {product_name_link}, "
         if seo_settings['link_to_category']:
@@ -327,8 +323,9 @@ def create_prompt(product, prompt_settings, app_settings, seo_settings):
             prompt += f"Add a link to find more products from category: {product['category_name']} and brand: {product['vendor_name']}: {more_from_same_vendor_and_category_link}. \n"
 
     # Product information instructions
-    prompt += f"\n Product information instructions: \n"
-    prompt += f"1. The store is \"{app_settings['website_name']}\";\n"
+    prompt += f"\nProduct information instructions: \n"
+    if app_settings['website_name']:
+        prompt += f"1. The store is \"{app_settings['website_name']}\";\n"
     if prompt_settings['product_name']:
         prompt += f"2. Rewrite the title in SEO way. Remove irrelevants from \"{product['product_name']}\"; \n"
     # Check if 'price_from' is in prompt_settings and is not None
@@ -365,15 +362,21 @@ def create_prompt(product, prompt_settings, app_settings, seo_settings):
         prompt += f"8. Use product characteristics: \"{product['property_option_values']}\". You must write feature/benefit dichotomy description. For example, stating that a dishwasher applies high heat and water pressure (or worse, providing numbers with no context) doesn't tell the reader anything. These are features, and they resonate with the reader much better when you pair them with their benefit. In this case, the benefit might be that buying this dishwasher will liberate them from having to remove food residue and stains by hand;\n"
     if app_settings['use_seo_package']:
         prompt += f"9. Avoid superfluous words. Avoid Generic Writing, instead, employ Unique features and benefits, The 'What' of what your product can do for them, Explanation of the specific ways the product will improve their lives. Don't use the passive voice.\n"
+    if prompt_settings["additional_instructions"]:
+        prompt += f"9. Additional important instructions: {prompt_settings['additional_instructions']};\n"
     
     return prompt
 
-def create_prompt_short_description(product, prompt_settings, app_settings, short_description_settings, seo_settings):
+def create_prompt_short_description(product, prompt_settings, app_settings, seo_settings, short_description_settings):
     # Initialize an empty string for the prompt
     prompt = ''
 
     # Check if SEO package is in use
-    
+        # Main instructions
+    prompt += f'Strictly follow the instructions step by step! \nMain instructions: \n'
+    prompt += f"You are {short_description_settings['short_purpose']} copywriter at {app_settings['website_name']} that works in \"{app_settings['niche']}\". You are writing and adapting this short description in {short_description_settings['short_language']} language.\n"
+    prompt += f"The short description must be in no more than {short_description_settings['short_length']} words and it must highlight the product bennefits only.\n"
+    '''
     if short_description_settings['use_seo_package']:
         # Create an anchor tag with product name and URL
         if short_description_settings['link_to_product']:
@@ -388,11 +391,6 @@ def create_prompt_short_description(product, prompt_settings, app_settings, shor
             keywords = get_keywords(seo_settings, app_settings, product)
         if short_description_settings['link_keyword_to_product']:
             keyword_product_link = f'<a href="{app_settings["url"]}/product/{product["url_handle"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"{product["product_name"]}\""> put the keywords here </a>'
-
-    # Main instructions
-    prompt += f'Strictly follow the instructions step by step! \nMain instructions: \n'
-    prompt += f"You are {app_settings['niche']} and {short_description_settings['purpouse']} copywriter at {app_settings['website_name']}. This short description is published online at \"{app_settings['website_name']}\" (do not invite the user to go to the store, he is already there!). You are writing and adapting this short description in {app_settings['language']} language. \n"
-    prompt += f"The product description must be in no more than {short_description_settings['length']} words and its purpouse is for \"{short_description_settings['purpouse']}\".\n"
     
     # SEO and Keywords instructions
     if short_description_settings['use_seo_package']:
@@ -412,27 +410,24 @@ def create_prompt_short_description(product, prompt_settings, app_settings, shor
             prompt += f"Add this link to one of the vendor names: {vendor_name_link}, "
         if short_description_settings['link_to_more_from_same_vendor_and_category']:
             prompt += f"Add a link to find more products from category: {product['category_name']} and brand: {product['vendor_name']}: {more_from_same_vendor_and_category_link}. \n"
-    
+        '''
     # Product information instructions
     prompt += f"\n Product information instructions: \n"
-    prompt += f"1. The store is \"{app_settings['website_name']}\";\n"
-    if short_description_settings['product_name']:
-        prompt += f"2. Rewrite the title in SEO way. Remove irrelevants from \"{product['product_name']}\"; \n"      
+    if short_description_settings['short_product_name']:
+        prompt += f"- Use the product name: \"{product['product_name']}\"; \n"      
         # Check if 'price_from' is in the product and 'free_delivery_over' is in app_settings and both are not None
     # Product specifications instructions
-    if short_description_settings['short_description']:
-        prompt += f"4. Use this short description to rewrite you short description: \"{product['short_description']}\";\n"
-    if short_description_settings['description']:
-        prompt += f"5. Use the existing description to rewrite your short description: \"{product['description']}\"\n"
-    if short_description_settings['vendor_name']:
-        prompt += f"6. The brand of the product is: \"{product['vendor_name']}\";\n"
-    if short_description_settings['category_name']:
-        prompt += f"7. Category is: \"{product['category_name']}\" (you must use it only for reference for the description but not directly);\n"
-    if short_description_settings['property_option_values']:
-        prompt += f"8. Use product characteristics: \"{product['property_option_values']}\". You must write feature/benefit dichotomy description. For example, stating that a dishwasher applies high heat and water pressure (or worse, providing numbers with no context) doesn't tell the reader anything. These are features, and they resonate with the reader much better when you pair them with their benefit. In this case, the benefit might be that buying this dishwasher will liberate them from having to remove food residue and stains by hand;\n"
-    if short_description_settings['use_seo_package']:
-        prompt += f"9. Avoid superfluous words. Avoid Generic Writing, instead, employ Unique features and benefits, The 'What' of what your product can do for them, Explanation of the specific ways the product will improve their lives. Don't use the passive voice.\n"
-    
+    if short_description_settings['short_short_description']:
+        prompt += f"- Use this short description to rewrite your new short description: \"{product['short_description']}\";\n"
+    if short_description_settings['short_vendor_name']:
+        prompt += f"- The brand is: \"{product['vendor_name']}\";\n"
+    if short_description_settings['short_category_name']:
+        prompt += f"- Category is: \"{product['category_name']}\" (you must use it only for reference for the description but not directly);\n"
+    if short_description_settings['short_property_option_values']:
+        prompt += f"- Use product characteristics: \"{product['property_option_values']}\". Highlight only the most valuable product characteristics.\n"
+    if short_description_settings['short_additional_instructions']:
+        prompt += f"- Additional prompt instructions: \"{short_description_settings['short_additional_instructions']}\".\n"
+
     return prompt
 
 
@@ -598,18 +593,25 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                     
                     # Update the product description
                     updateProduct(product_id, description, short_description, meta_description, app_settings, project_id)
-                    query.processed(db, Processed, project_id, product_id, app_settings, task_id, response)
+                    page_url = None
+                    query.processed(db, Processed, project_id, product_id, app_settings, task_id, response, page_url)
                     socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."},room=str(project_id), namespace='/')
             
             ############## CHECK IF PRODUCT SHORT DESCRIPTION IS ENABLED ##############
             if enable_product_short_description:
                 response = None
-                # Create a prompt for each product
-                response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings, short_description_settings, project_id)
+                prompt = None
 
-                if app_settings["print_prompt"] is True:
-                    return
-                socketio.emit('log', {'data': f'\nShort description generation...'},room=str(project_id), namespace='/')
+                prompt = create_prompt_short_description(product_dict, prompt_settings, app_settings, seo_settings, short_description_settings)
+                if app_settings['print_prompt']:
+                    socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
+                    return(prompt)
+                # Create a prompt for each product
+                
+                response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings, short_description_settings, project_id, prompt)
+
+                
+                socketio.emit('log', {'data': f'\nShort description generation for {product_dict["product_name"]} with ID: {product_dict["product_id"]}'},room=str(project_id), namespace='/')
                 short_description = response['choices'][0]['message']['content']
 
                 ##### TEST MODE ONLY #####
@@ -648,7 +650,7 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                     
                     # Update the short description
                     updateProduct(product_id, description, short_description, meta_description, app_settings, project_id)
-                    query.processed(db, Processed, project_id, product_id, app_settings, task_id, response)
+                    query.processed(db, Processed, project_id, product_id, app_settings, task_id, response, page_url)
                     socketio.emit('log', {'data': f"Product short description for: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."},room=str(project_id), namespace='/')
 
             ############## CHECK IF META DESCRIPTION IS ENABLED ##############
@@ -854,11 +856,16 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
 
                     if enable_product_short_description:
                         response = None
+                        prompt = None
                         # Create a prompt for each product
-                        response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings, short_description_settings, project_id)
-
-                        if app_settings["print_prompt"] is True:
-                            return
+                        prompt = create_prompt_short_description(product_dict, prompt_settings, app_settings, seo_settings, short_description_settings)
+                        if app_settings['print_prompt']:
+                            socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
+                            socketio.emit('log', {'data': f'\nProcess completed...'},room=str(project_id), namespace='/')
+                            return(prompt)
+                        # Create a prompt for each product
+                        
+                        response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings, short_description_settings, project_id, prompt)
                         socketio.emit('log', {'data': f'Short description generation...'},room=str(project_id), namespace='/')
                         short_description = response['choices'][0]['message']['content']
                         ##### TEST MODE ONLY #####
