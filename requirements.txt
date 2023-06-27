@@ -10,6 +10,8 @@ simple-websocket
 validators
 flask_session
 Flask-Login
-Flask-Dance
+Flask-Dance[sqla]
 flask_sqlalchemy
 flask-migrate
+sqlalchemy
+oauthlib

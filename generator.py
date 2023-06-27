@@ -10,13 +10,10 @@ import validators
 import time
 from flask_socketio import SocketIO, emit
 import query
+from sqlalchemy import func, desc
 
 
-
-def stop():
-    print('Stopping the process...')
-    global stop_process
-    stop_process = True
+stop_process = {}
 
 def reset_stop():
     print('Resetting the process...')
@@ -34,6 +31,7 @@ def set_socketio(sio):
 app_settings = {}
 seo_settings = {}
 prompt_settings = {}
+short_description_settings = {}
   
 
 def get_product_details(product_id, app_settings):
@@ -115,7 +113,7 @@ def getProperties(property_id, app_settings):
 
 
 
-def updateProduct(product_id, description, short_description, meta_description, app_settings):
+def updateProduct(product_id, description, short_description, meta_description, app_settings, project_id):
     headers = {
         'X-CloudCart-ApiKey': app_settings['X-CloudCart-ApiKey'],
         'Content-Type': 'application/vnd.api+json',
@@ -126,7 +124,8 @@ def updateProduct(product_id, description, short_description, meta_description, 
         key: value 
         for key, value in [
             ("description", description), 
-            ("short_description", short_description)
+            ("short_description", short_description),
+            ("seo_description", meta_description)
 
         ] 
         if value  # This condition filters out empty values
@@ -154,7 +153,7 @@ def updateProduct(product_id, description, short_description, meta_description, 
         except Exception as e:
             if attempt < max_retries - 1:  # If it's not the last attempt, wait and then continue to the next iteration
                 wait_time = 5 * (attempt + 1)
-                socketio.emit('log', {'data': f"Error occured at CloudCart. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+                socketio.emit('log', {'data': f"Error occured at CloudCart. Waiting for {wait_time} seconds before retrying."},room=str(project_id), namespace='/')
                 time.sleep(wait_time)
             else:  # On the last attempt, fail with an exception
                 raise
@@ -182,7 +181,7 @@ def get_keywords(seo_settings, app_settings, product):
 
                 # Wait for a bit before retrying and print an error message
                 wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
-                socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+                socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."},room=str(project_id), namespace='/')
 
                 print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
                 time.sleep(wait_time)
@@ -197,17 +196,17 @@ def get_keywords(seo_settings, app_settings, product):
     return(response['choices'][0]['message']['content'])
 
 def generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description):
-
-    if app_settings['print_prompt']:
-        socketio.emit('log', {'data': f"\Meta description prompt: {prompt}"}, namespace='/')
-        return(prompt)
-
-    if seo_settings['use_keywords'] == 0:
+    if description is None:
+        description = ''
+    if seo_settings.get('use_keywords', 0) == 0:
         prompt = f'You are skilled SEO expert at the online store: {app_settings["url"]}. Craft a meta description that effectively communicates the unique value proposition from the product desctiption: {description}. Write it in {app_settings["language"]} language, and the meta descritpion text should entices users to click on our website in search results by using emoji and other symbols (here is an example of good meta description: "Shop for High Heels Under 500 in India * Buy latest range of High Heels Under 500 at Myntra* Free Shipping # COD * Easy returns and exchanges."). The lenght of the meta description should be no more than 140 - 150 character range\n'
     else:
         prompt = f'You are skilled SEO expert at the online store: {app_settings["url"]}. Craft a meta description that effectively communicates the unique value proposition from the product desctiption: {description}. Be sure to use the right keywords ({seo_settings["use_keywords"]})in your meta description that are the most relevant. Write it in {app_settings["language"]} language, and the meta descritpion text should entices users to click on our website in search results by using emoji and other symbols (here is an example of good meta description: "Shop for High Heels Under 500 in India * Buy latest range of High Heels Under 500 at Myntra* Free Shipping # COD * Easy returns and exchanges."). The lenght of the meta description should be no more than 140 - 150 character range\n'
-
-
+    
+    if app_settings['print_prompt']:
+        socketio.emit('log', {'data': f"Meta description prompt: {prompt}"},room=str(project_id), namespace='/')
+        return(prompt)
+    
     max_retries = 15
 
     for attempt in range(max_retries):
@@ -226,7 +225,7 @@ def generate_meta_description(product_dict, prompt_settings, app_settings, seo_s
 
                 # Wait for a bit before retrying and print an error message
                 wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
-                socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+                socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."},room=str(project_id), namespace='/')
 
                 print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
                 time.sleep(wait_time)
@@ -238,9 +237,9 @@ def generate_meta_description(product_dict, prompt_settings, app_settings, seo_s
         raise Exception("Maximum number of retries exceeded.")
 
     # Do something with the response, e.g., print the message content
-    return(response['choices'][0]['message']['content'])
+    return response
 
-def generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings):
+def generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings, short_description_settings, project_id):
 
     if description is None:
         description = ''
@@ -250,7 +249,7 @@ def generate_short_description(product_dict, prompt_settings, description, app_s
     else:
         prompt = f'You are skilled SEO expert at the online store: {app_settings["url"]}. Craft a meta description that effectively communicates the unique value proposition from the product desctiption: {description}. Be sure to use the right keywords ({seo_settings["use_keywords"]})in your meta description that are the most relevant. Write it in {app_settings["language"]} language, and the meta descritpion text should entices users to click on our website in search results by using emoji and other symbols (here is an example of good meta description: "Shop for High Heels Under 500 in India * Buy latest range of High Heels Under 500 at Myntra* Free Shipping # COD * Easy returns and exchanges."). The lenght of the meta description should be no more than 140 - 150 character range\n'
     if app_settings['print_prompt']:
-        socketio.emit('log', {'data': f"\Description prompt: {prompt}"}, namespace='/')
+        socketio.emit('log', {'data': f"Description prompt: {prompt}"},room=str(project_id), namespace='/')
         return
     max_retries = 15
 
@@ -270,7 +269,7 @@ def generate_short_description(product_dict, prompt_settings, description, app_s
 
                 # Wait for a bit before retrying and print an error message
                 wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
-                socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+                socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."},room=str(project_id), namespace='/')
 
                 print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
                 time.sleep(wait_time)
@@ -369,16 +368,90 @@ def create_prompt(product, prompt_settings, app_settings, seo_settings):
     
     return prompt
 
+def create_prompt_short_description(product, prompt_settings, app_settings, short_description_settings, seo_settings):
+    # Initialize an empty string for the prompt
+    prompt = ''
 
-def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt_settings, project_id):
-    global stop_process
-    stop_process = False
+    # Check if SEO package is in use
     
-    processed_products = []
-    socketio.emit('log', {'data': f'Started...'}, namespace='/')
+    if short_description_settings['use_seo_package']:
+        # Create an anchor tag with product name and URL
+        if short_description_settings['link_to_product']:
+            product_name_link = f'<a href="{app_settings["url"]}/product/{product["url_handle"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"{product["product_name"]}\"">put the product title here</a>'
+        if short_description_settings['link_to_category']:
+            category_name_link = f'<a href="{app_settings["url"]}/category/{product["category_slug"]}" target="_blank" alt="rewrite in {app_settings["language"]} language, the alt title: \"{product["category_name"]}\"">put the category name here</a>'
+        if short_description_settings['link_to_vendor']:
+            vendor_name_link = f'<a href="{app_settings["url"]}/vendor/{product["vendor_slug"]}" target="_blank" alt="{product["vendor_name"]}">put the vendor name here</a>'
+        if short_description_settings['link_to_more_from_same_vendor_and_category']:
+            more_from_same_vendor_and_category_link = f'<a href="{app_settings["url"]}/category/{product["category_slug"]}?vendors={product["vendor_slug"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"{product["vendor_name"]} - {product["category_name"]}\"">give the user the option to see more from \"{product["vendor_name"]}\"</a>'
+        if short_description_settings['use_keywords'] != 0:
+            keywords = get_keywords(seo_settings, app_settings, product)
+        if short_description_settings['link_keyword_to_product']:
+            keyword_product_link = f'<a href="{app_settings["url"]}/product/{product["url_handle"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"{product["product_name"]}\""> put the keywords here </a>'
+
+    # Main instructions
+    prompt += f'Strictly follow the instructions step by step! \nMain instructions: \n'
+    prompt += f"You are {app_settings['niche']} and {short_description_settings['purpouse']} copywriter at {app_settings['website_name']}. This short description is published online at \"{app_settings['website_name']}\" (do not invite the user to go to the store, he is already there!). You are writing and adapting this short description in {app_settings['language']} language. \n"
+    prompt += f"The product description must be in no more than {short_description_settings['length']} words and its purpouse is for \"{short_description_settings['purpouse']}\".\n"
+    
+    # SEO and Keywords instructions
+    if short_description_settings['use_seo_package']:
+        prompt += f"This part is highly important! Stryctly follow the SEO and keywords instructions: \n"
+        if short_description_settings['use_keywords'] != 0:
+            prompt += f"All keywords should be used in the most natural way accros the generated description. For example at the beginning of the text, at the middle and at the end. The description should contains the following keywords: {keywords}. Use each combination not less than {seo_settings['keywords_density']} times. \n"
+        if short_description_settings['use_free_keywords'] != '':
+            free_keywords = f'and you must combine it with the best relevant keywords from here: \"{seo_settings["use_free_keywords"]}\"'
+            prompt += f'You are skilled SEO expert. Research ONLY the top {seo_settings["use_keywords"]} long-tail keywords, from the title of this product {free_keywords} in {app_settings["language"]} language. Use the category \"{product["category_name"]}\" and the brand \"{product["vendor_name"]}\" only if you are absolutly sure that the information is critical for the top long-tail keyword. Please note that I want only the words without any other explanations from your side! Return the keywords by comma separated. \n'
+        if short_description_settings['link_keyword_to_product']:
+            prompt += f"In addition, you must make at least {seo_settings['link_keyword_density']} links to that keywords with this link: {keyword_product_link}. \n"
+        if short_description_settings['link_to_product']:
+            prompt += f"add this link to one of the product titles: {product_name_link}, "
+        if short_description_settings['link_to_category']:
+            prompt += f"add this link to one of the category names: {category_name_link}, "
+        if short_description_settings['link_to_vendor']:
+            prompt += f"Add this link to one of the vendor names: {vendor_name_link}, "
+        if short_description_settings['link_to_more_from_same_vendor_and_category']:
+            prompt += f"Add a link to find more products from category: {product['category_name']} and brand: {product['vendor_name']}: {more_from_same_vendor_and_category_link}. \n"
+    
+    # Product information instructions
+    prompt += f"\n Product information instructions: \n"
+    prompt += f"1. The store is \"{app_settings['website_name']}\";\n"
+    if short_description_settings['product_name']:
+        prompt += f"2. Rewrite the title in SEO way. Remove irrelevants from \"{product['product_name']}\"; \n"      
+        # Check if 'price_from' is in the product and 'free_delivery_over' is in app_settings and both are not None
+    # Product specifications instructions
+    if short_description_settings['short_description']:
+        prompt += f"4. Use this short description to rewrite you short description: \"{product['short_description']}\";\n"
+    if short_description_settings['description']:
+        prompt += f"5. Use the existing description to rewrite your short description: \"{product['description']}\"\n"
+    if short_description_settings['vendor_name']:
+        prompt += f"6. The brand of the product is: \"{product['vendor_name']}\";\n"
+    if short_description_settings['category_name']:
+        prompt += f"7. Category is: \"{product['category_name']}\" (you must use it only for reference for the description but not directly);\n"
+    if short_description_settings['property_option_values']:
+        prompt += f"8. Use product characteristics: \"{product['property_option_values']}\". You must write feature/benefit dichotomy description. For example, stating that a dishwasher applies high heat and water pressure (or worse, providing numbers with no context) doesn't tell the reader anything. These are features, and they resonate with the reader much better when you pair them with their benefit. In this case, the benefit might be that buying this dishwasher will liberate them from having to remove food residue and stains by hand;\n"
+    if short_description_settings['use_seo_package']:
+        prompt += f"9. Avoid superfluous words. Avoid Generic Writing, instead, employ Unique features and benefits, The 'What' of what your product can do for them, Explanation of the specific ways the product will improve their lives. Don't use the passive voice.\n"
+    
+    return prompt
+
+
+def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prompt_settings, short_description_settings, project_id):
+    
+    stop_process[project_id] = False
+    
+    last_processed_product_id, last_page_url = get_last_processed_product(db, Processed, project_id)
+
+    all_product_ids = []
+
+    socketio.emit('log', {'data': f'Started...'},room=str(project_id), namespace='/')
  
-    # Build the base URL
-    url = f"{app_settings['url']}/api/v2/products"
+    # If there is a last processed product, start processing from the next product
+    if last_processed_product_id:
+        url = last_page_url
+    else:
+        # If there is no last processed product, build the base URL and filters as before
+        url = f"{app_settings['url']}/api/v2/products"
     
     if not validators.url(url):
         raise Exception("The URL provided in 'app_settings' is not valid")
@@ -409,9 +482,9 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
         url += '/' + app_settings['specific_product']
         ################# PROCESS SPECIFIC PRODUCT #################
 
-        if stop_process:
-            socketio.emit('log', {'data': 'Process stopped by user.'}, namespace='/')
-            stop()  # Stop processexit
+        if stop_process.get(project_id, False):
+            socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+            stop(project_id)  # Stop processexit
             return
 
         response = requests.get(url, headers=headers)
@@ -425,7 +498,7 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
 
             # Skip product with short descriptions
             if app_settings['skip_products_with_description'] > 0 and len(details['description'].split()) > app_settings['skip_products_with_description']:
-                socketio.emit('log', {'data': f"\nProduct: {details['name']} has more than {app_settings['skip_products_with_description']} words.\nSkipped product..."}, namespace='/')
+                socketio.emit('log', {'data': f"\nProduct: {details['name']} has more than {app_settings['skip_products_with_description']} words.\nSkipped product..."},room=str(project_id), namespace='/')
                 return
             
             # Build the product dictionary
@@ -445,14 +518,15 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
 
             ############## CHECK IF PRODUCT DESCRIPTION IS ENABLED ##############
             if enable_product_description:
+                response = None
                 # Create a prompt for each product
 
                 prompt = create_prompt(product_dict, prompt_settings, app_settings, seo_settings)
                 if app_settings['print_prompt']:
-                    socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"}, namespace='/')
-                    socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
+                    socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
+                    socketio.emit('log', {'data': f'\nProcess completed...'},room=str(project_id), namespace='/')
                     return(prompt)
-                socketio.emit('log', {'data': f"Processing product with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"}, namespace='/')
+                socketio.emit('log', {'data': f"Processing product with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"},room=str(project_id), namespace='/')
                 
                 # Get the response from OpenAI
                 max_retries = 15
@@ -474,7 +548,7 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
 
                             # Wait for a bit before retrying and print an error message
                             wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
-                            socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+                            socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."},room=str(project_id), namespace='/')
 
                             print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
                             time.sleep(wait_time)
@@ -490,8 +564,9 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
                 ##### TEST MODE ONLY #####
                 if test_mode != 0:
 
-                    if stop_process:
-                        stop()  # Stop process
+                    if stop_process.get(project_id, False):
+                        stop(project_id)  # Stop process
+                        socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
                         return
                     
                     # Calculate cost
@@ -500,19 +575,18 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
                     ###### Save statistics ###### 
                     task_id = "product_description"
 
-
                     query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=1)
 
                     ###### Emit the description to the client ######
-                    socketio.emit('log', {'data': f'\n{description}\n'}, namespace='/')
+                    socketio.emit('log', {'data': f'\n{description}\n'},room=str(project_id), namespace='/')
     
-                    
-                
+
                 ##### LIVE MODE #####
                 if test_mode == 0:
 
-                    if stop_process:
-                        stop()  # Stop process
+                    if stop_process.get(project_id, False):
+                        stop(project_id)  # Stop process
+                        socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
                         return
 
                     # Calculate cost
@@ -523,22 +597,27 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
                     query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
                     
                     # Update the product description
-                    updateProduct(product_id, description, short_description, meta_description, app_settings)
-                    socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."}, namespace='/')
-
+                    updateProduct(product_id, description, short_description, meta_description, app_settings, project_id)
+                    query.processed(db, Processed, project_id, product_id, app_settings, task_id, response)
+                    socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."},room=str(project_id), namespace='/')
+            
+            ############## CHECK IF PRODUCT SHORT DESCRIPTION IS ENABLED ##############
             if enable_product_short_description:
-                socketio.emit('log', {'data': f'\nShort description generation...'}, namespace='/')
+                response = None
                 # Create a prompt for each product
+                response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings, short_description_settings, project_id)
 
-                
-                response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings)
+                if app_settings["print_prompt"] is True:
+                    return
+                socketio.emit('log', {'data': f'\nShort description generation...'},room=str(project_id), namespace='/')
                 short_description = response['choices'][0]['message']['content']
 
                 ##### TEST MODE ONLY #####
                 if test_mode != 0:
 
-                    if stop_process:
-                        stop()  # Stop process
+                    if stop_process.get(project_id, False):
+                        stop(project_id)  # Stop process
+                        socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
                         return             
 
                     # Calculate cost
@@ -550,14 +629,15 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
                     query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=1)
 
                     ###### Emit the description to the client ######
-                    socketio.emit('log', {'data': f'\n{short_description}\n'}, namespace='/')
+                    socketio.emit('log', {'data': f'\n{short_description}\n'},room=str(project_id), namespace='/')
 
                 ##### LIVE MODE #####
                 if test_mode == 0:
 
-                    if stop_process:
-                        stop()  # Stop process
-                        return
+                    if stop_process.get(project_id, False):
+                        stop(project_id)  # Stop process
+                        socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                        return 
 
                     # Calculate cost
                     cost = cost_statistics_all(response, app_settings) 
@@ -566,12 +646,64 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
                     task_id = "short_description"
                     query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
                     
+                    # Update the short description
+                    updateProduct(product_id, description, short_description, meta_description, app_settings, project_id)
+                    query.processed(db, Processed, project_id, product_id, app_settings, task_id, response)
+                    socketio.emit('log', {'data': f"Product short description for: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."},room=str(project_id), namespace='/')
+
+            ############## CHECK IF META DESCRIPTION IS ENABLED ##############
+            if enable_generate_meta_description:
+                response = None
+                # Create a prompt for each product
+
+                response = generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description)
+                if app_settings["print_prompt"] is True:
+                    return
+                socketio.emit('log', {'data': f'\nMeta description generation...'},room=str(project_id), namespace='/')
+                meta_description = response['choices'][0]['message']['content']
+
+                ##### TEST MODE ONLY #####
+                if test_mode != 0:
+
+                    if stop_process.get(project_id, False):
+                        stop(project_id)  # Stop process
+                        socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                        return            
+
+                    # Calculate cost
+                    cost = cost_statistics_all(response, app_settings)                
+
+                    ###### Save statistics ###### 
+                    task_id = "meta_description"
+
+                    query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=1)
+
+                    ###### Emit the description to the client ######
+                    socketio.emit('log', {'data': f'\n{meta_description}\n'},room=str(project_id), namespace='/')
+
+                ##### LIVE MODE #####
+                if test_mode == 0:
+
+                    if stop_process.get(project_id, False):
+                        stop(project_id)  # Stop process
+                        socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                        return 
+
+                    # Calculate cost
+                    cost = cost_statistics_all(response, app_settings) 
+                    
+                    ###### Save statistics ######
+                    task_id = "meta_description"
+                    query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
+
                     # Update the product description
-                    updateProduct(product_id, description, short_description, meta_description, app_settings)
-                    socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."}, namespace='/')
+                    updateProduct(product_id, description, short_description, meta_description, app_settings, project_id)
+                    query.processed(db, Processed, project_id, product_id, app_settings, task_id, response)
+                    socketio.emit('log', {'data': f"Product meta description for: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."},room=str(project_id), namespace='/')
+
 
         ###### EXIT THE LOOP ######
-        socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
+        socketio.emit('log', {'data': f'\nProcess completed...'},room=str(project_id), namespace='/')
 
     ###############################################
     ########## PROCESS MULTIPLE PRODUCTS ##########
@@ -597,10 +729,10 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
         while url and not limit_reached:
             
             ####### Check if the process has been stopped by the user #######
-            if stop_process:
-                socketio.emit('log', {'data': 'Process stopped by user.'}, namespace='/')
-                stop()  # Stop process
-                break
+            if stop_process.get(project_id, False):
+                stop(project_id)  # Stop process
+                socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                break 
 
             response = requests.get(url, headers=headers)
             data = response.json()
@@ -608,9 +740,14 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
             if 'data' in data:
                 total_products = data['meta']['page']['total']   # get the total number of products
                 for product in data['data']:
+                    all_product_ids.append(product['id'])  # add the product id to the list of all product ids
 
                     product_count += 1  # increment the counter for each product processed
-                    product_id = product['id']
+                    product_id = int(product['id'])
+                     # If there is a last processed product and we are on its page, skip the products before it
+                    if last_processed_product_id is not None and product_id is not None:
+                        if last_processed_product_id >= product_id:
+                            continue
 
                     details = get_product_details(product_id, app_settings)
                     # Skip products with short descriptions
@@ -638,10 +775,10 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
                         # Create a prompt for each product
                         prompt = create_prompt(product_dict, prompt_settings, app_settings, seo_settings)
                         if app_settings['print_prompt']:
-                            socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"}, namespace='/')
-                            socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
+                            socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
+                            socketio.emit('log', {'data': f'\nProcess completed...'},room=str(project_id), namespace='/')
                             return(prompt)
-                        socketio.emit('log', {'data': f"Processing product with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"}, namespace='/')
+                        socketio.emit('log', {'data': f"Processing product with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"},room=str(project_id), namespace='/')
                         
                         # Get the response from OpenAI
                         max_retries = 15
@@ -663,7 +800,7 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
 
                                     # Wait for a bit before retrying and print an error message
                                     wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
-                                    socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+                                    socketio.emit('log', {'data': f"Error occured at OpenAI. Waiting for {wait_time} seconds before retrying."},room=str(project_id), namespace='/')
 
                                     print(f"Encountered an error: {e.error}. Waiting for {wait_time} seconds before retrying.")
                                     time.sleep(wait_time)
@@ -678,9 +815,10 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
                         ##### TEST MODE ONLY #####
                         if test_mode != 0:
 
-                            if stop_process:
-                                stop()  # Stop process
-                                return
+                            if stop_process.get(project_id, False):
+                                stop(project_id)  # Stop process
+                                socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                return 
                             
                             # Calculate cost
                             cost = cost_statistics_all(response, app_settings)                
@@ -690,15 +828,15 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
                             query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=1)
 
                             ###### Emit the description to the client ######
-                            socketio.emit('log', {'data': f'\n{description}\n'}, namespace='/')
+                            socketio.emit('log', {'data': f'\n{description}\n'},room=str(project_id), namespace='/')
                     
-                        """
                         ##### LIVE MODE #####
                         if test_mode == 0:
 
-                            if stop_process:
-                                stop()  # Stop process
-                                return
+                            if stop_process.get(project_id, False):
+                                stop(project_id)  # Stop process
+                                socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                return 
 
                             # Calculate cost
                             cost = cost_statistics_all(response, app_settings) 
@@ -708,20 +846,27 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
                             query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
                             
                             # Update the product description
-                            updateProduct(product_id, description, short_description, meta_description, app_settings)
-                            socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."}, namespace='/')
-                        """
+                            updateProduct(product_id, description, short_description, meta_description, app_settings, project_id)
+                            last_processed_product_id = product_id
+                            last_page_url = url
+                            query.processed(db, Processed, project_id, last_processed_product_id, app_settings, task_id, response, last_page_url)
+                            socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."},room=str(project_id), namespace='/')
+
                     if enable_product_short_description:
-                        socketio.emit('log', {'data': f'Short description generation...'}, namespace='/')
+                        response = None
                         # Create a prompt for each product
-                        
-                        response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings)
+                        response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings, short_description_settings, project_id)
+
+                        if app_settings["print_prompt"] is True:
+                            return
+                        socketio.emit('log', {'data': f'Short description generation...'},room=str(project_id), namespace='/')
                         short_description = response['choices'][0]['message']['content']
                         ##### TEST MODE ONLY #####
                         if test_mode != 0:
-                            if stop_process:
-                                stop()  # Stop process
-                                return             
+                            if stop_process.get(project_id, False):
+                                stop(project_id)  # Stop process
+                                socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                return              
 
                             # Calculate cost
                             cost = cost_statistics_all(response, app_settings)                
@@ -731,41 +876,107 @@ def get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt
                             query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=1)
 
                             ###### Emit the description to the client ######
-                            socketio.emit('log', {'data': f'\n{short_description}\n'}, namespace='/')
+                            socketio.emit('log', {'data': f'\n{short_description}\n'},room=str(project_id), namespace='/')
                         
-                        
-                    ##### LIVE MODE #####
-                    if test_mode == 0:
+                        ##### LIVE MODE #####
+                        if test_mode == 0:
 
-                        if stop_process:
-                            stop()  # Stop process
+                            if stop_process.get(project_id, False):
+                                stop(project_id)  # Stop process
+                                socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                return 
+
+                            # Calculate cost
+                            cost = cost_statistics_all(response, app_settings) 
+                            
+                            ###### Save statistics ######
+                            task_id = "short_description"
+                            query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
+                            
+                            # Update the product description
+                            updateProduct(product_id, description, short_description, meta_description, app_settings, project_id)
+                            query.processed(db, Processed, project_id, product_id, app_settings, task_id, response, url)
+                            socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."},room=str(project_id), namespace='/')
+                    
+                    ############## CHECK IF META DESCRIPTION IS ENABLED ##############
+                    if enable_generate_meta_description:
+                        response = None
+                        # Create a prompt for each product
+
+                        response = generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description)
+                        if app_settings["print_prompt"] is True:
                             return
+                        socketio.emit('log', {'data': f'\nMeta description generation...'},room=str(project_id), namespace='/')
+                        meta_description = response['choices'][0]['message']['content']
 
-                        # Calculate cost
-                        cost = cost_statistics_all(response, app_settings) 
-                        
-                        ###### Save statistics ######
-                        task_id = "short_description"
-                        query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
-                        
-                        # Update the product description
-                        updateProduct(product_id, description, short_description, meta_description, app_settings)
-                        socketio.emit('log', {'data': f"Product: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."}, namespace='/')
+                        ##### TEST MODE ONLY #####
+                        if test_mode != 0:
+
+                            if stop_process.get(project_id, False):
+                                stop(project_id)  # Stop process
+                                socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                return             
+
+                            # Calculate cost
+                            cost = cost_statistics_all(response, app_settings)                
+
+                            ###### Save statistics ###### 
+                            task_id = "meta_description"
+
+                            query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=1)
+
+                            ###### Emit the description to the client ######
+                            socketio.emit('log', {'data': f'\n{meta_description}\n'},room=str(project_id), namespace='/')
+
+                        ##### LIVE MODE #####
+                        if test_mode == 0:
+
+                            if stop_process.get(project_id, False):
+                                stop(project_id)  # Stop process
+                                socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                return 
+
+                            # Calculate cost
+                            cost = cost_statistics_all(response, app_settings) 
+                            
+                            ###### Save statistics ######
+                            task_id = "meta_description"
+                            query.statistics(db, Statistics, project_id, product_id, app_settings, task_id, response, cost, test_mode=0)
+
+                            # Update the product description
+                            updateProduct(product_id, description, short_description, meta_description, app_settings, project_id)
+                            query.processed(db, Processed, project_id, product_id, app_settings, task_id, response, url)
+                            socketio.emit('log', {'data': f"Product meta description for: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."},room=str(project_id), namespace='/')
+
                     # Check if test mode is enabled and if the product count has reached the limit
                     if test_mode > 0:
-                        socketio.emit('log', {'data': f'\nTest mode completed...'}, namespace='/')
+                        socketio.emit('log', {'data': f'\nTest mode completed...'},room=str(project_id), namespace='/')
                         limit_reached = True
                         return
             ###### NEXT PAGE ######
             url = data['links']['next'] if 'next' in data['links'] else None
-            socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
-    socketio.emit('log', {'data': f'\nProcess completed...'}, namespace='/')
+    socketio.emit('log', {'data': f'\nProcess completed all...'},room=str(project_id), namespace='/')
     return(200)
-        
-        
-        
 
-def calculate_all(app_settings):
+def stop(project_id):
+    print(f'Stopping the process for project {project_id}...')
+    stop_process[project_id] = True     
+        
+def get_last_processed_product(db, Processed, project_id):
+    try:
+        last_product = db.session.query(Processed).filter(Processed.project_id == project_id).filter(Processed.task_id == "product").order_by(desc(Processed.record_id)).first()
+        if last_product:
+            return last_product.record_id, last_product.page_url
+        else:
+            return None, None
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return None, None
+
+    
+
+def calculate_all(app_settings, project_id):
+
     gpt3_price = 0.0035 / 1000
     gpt4_price = 0.09 / 1000
     tokens_per_word = 4.33  # approx conversion from words to tokens
@@ -802,7 +1013,7 @@ def calculate_all(app_settings):
 
     formatted_cost = f"{0.92 * cost:.2f}"   # format cost as a float with 3 decimal places
 
-    socketio.emit('log', {'data': f"Approximate estimated cost for model {app_settings['model']} for {getTotalProducts} products with description of {app_settings['length']} words each: €{formatted_cost} EUR without VAT"}, namespace='/')
+    socketio.emit('log', {'data': f"Approximate estimated cost for model {app_settings['model']} for {getTotalProducts} products with description of {app_settings['length']} words each: €{formatted_cost} EUR without VAT"},room=str(project_id), namespace='/')
 
     return formatted_cost
 
@@ -847,7 +1058,7 @@ def getProducts(app_settings):
         except Exception as e:
             if attempt < max_retries - 1:  # If it's not the last attempt, wait and then continue to the next iteration
                 wait_time = 5 * (attempt + 1)
-                socketio.emit('log', {'data': f"Error occured at CloudCart. Waiting for {wait_time} seconds before retrying."}, namespace='/')
+                socketio.emit('log', {'data': f"Error occured at CloudCart. Waiting for {wait_time} seconds before retrying."},room=str(project_id), namespace='/')
                 time.sleep(wait_time)
             else:  # On the last attempt, fail with an exception
                 raise

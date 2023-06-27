@@ -13,3 +13,16 @@ def statistics(db, Statistics, project_id, product_id, app_settings, task_id, re
 
     db.session.add(new_stat)
     db.session.commit()
+
+def processed(db, Processed, project_id, product_id, app_settings, task_id, response, page_url):  # Update the argument list
+    new_processed = Processed(
+        project_id=project_id,
+        record_id=product_id,
+        model=app_settings['model'],
+        task_id=task_id,
+        output=response['choices'][0]['message']['content'],
+        page_url=page_url  # Add this line to store the page URL
+    )
+
+    db.session.add(new_processed)
+    db.session.commit()

@@ -8,12 +8,12 @@ from flask_dance.consumer import oauth_authorized
 from flask_migrate import Migrate
 from oauthlib.oauth2.rfc6749.errors import InvalidClientIdError
 from requests.models import MissingSchema
-from flask_socketio import SocketIO, emit
+from flask_socketio import SocketIO, emit, join_room, leave_room, close_room, rooms, disconnect
 from dotenv import load_dotenv
 from flask import Flask, session
 from flask_session import Session
 from urllib.parse import urlparse
-from models import create_statistics, create_user_class, create_project_class
+from models import create_statistics, create_user_class, create_project_class, create_processed
 import sys
 from generator import stop, get_all_products, calculate_all, set_socketio, getCategories, getVendors
 import socket
@@ -21,7 +21,6 @@ import os
 import logging
 import traceback
 from datetime import datetime
-from collections import namedtuple, defaultdict
 
 
 app = Flask(__name__)
@@ -55,26 +54,34 @@ load_dotenv()
 User = create_user_class(db)
 Project = create_project_class(db)
 Statistics = create_statistics(db)
+Processed = create_processed(db)
 
 socketio = SocketIO(app, manage_session=False)
+
 
 user_data = {}  # Here's where you'd store user data
 
 ########## SocketIO ##########
 
 
-@socketio.on('connect')
-def connect_handler():
-    user_data[request.sid] = {}  # Initialize user data for this session
-
-@socketio.on('disconnect')
-def disconnect_handler():
-    if request.sid in user_data:
-        del user_data[request.sid]  # Clean up user data for this session
-
 @socketio.on('connect', namespace='/')
-def logs_connect():
-    socketio.emit('log', {'data': f'Connected to the backend app...'}, namespace='/')
+def connect_handler():
+    emit('connect', {'data': 'Waiting for project_id to join the corresponding project.'}, namespace='/')
+
+@socketio.on('join', namespace='/')
+def on_join(data):
+    room = data['project_id']
+    username = data['username']
+    join_room(room)
+    emit('log', {'data': f'{username} has entered the project.'}, room=room)
+
+@socketio.on('disconnect', namespace='/')
+def disconnect_handler():
+    # This assumes that the disconnecting user can only be in one room
+    # If a user can be in multiple rooms, you should store a list of rooms that a user is in and iterate over it here
+    for room in rooms(sid=request.sid, namespace='/'):
+        leave_room(room, sid=request.sid, namespace='/')
+        emit('log', {'data': f'User with session id {request.sid} has left project id {room}'}, room=room, namespace='/')
 
 set_socketio(socketio)
 
@@ -137,9 +144,7 @@ def create_tables():
             db.create_all()
             print("Tables created successfully.")
         except OperationalError:
-            print("Could not create tables. Make sure your database server is running and your database URI is correct.")
-
-        
+            print("Could not create tables. Make sure your database server is running and your database URI is correct.")    
 # Call the function right after creating the SQLAlchemy object
 create_tables()
 
@@ -148,7 +153,8 @@ create_tables()
 @app.route('/stop_process', methods=['POST'])
 @login_required
 def stop_process():
-    stop()  # Call the function from generator.py
+    project_id = request.json.get('project_id')
+    stop(project_id)
     return 'Process stopped.'
 
 @app.route('/')
@@ -246,31 +252,43 @@ def mypage(project_id):
     app.logger.info('Render AI page')  # Logging example
     return render_template('ind.html', project=project)
 
+@app.route('/clear_processed_records', methods=['POST'])
+@login_required
+def clear_processed_records():
+    project_id = request.json.get('project_id')
+    
+    if project_id:
+        db.session.query(Processed).filter_by(project_id=project_id).delete()
+        db.session.commit()
+        return f"All processed records for Project ID {project_id} have been cleared."
+    else:
+        return "Project ID not provided."
+
 @app.route('/calculate', methods=['POST'])
 @login_required
 def calculate():
+    
     data = request.get_json()
-
     if not data:
         app.logger.error('No data provided')  # Logging example
         return jsonify({'error': 'No data provided'}), 400
-
+    project_id = request.json.get('project_id')
     try:
         app_settings = data.get('app_settings')
-        calculate_all(app_settings)
+        calculate_all(app_settings, project_id)
 
         return jsonify({'status': 'success'}), 200
     except KeyError as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'}, namespace='/')
+        socketio.emit('log', {'data': f'Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'}, room=str(project_id), namespace='/')
         return jsonify({'error': f"The key '{str(e)}' was not found in the data. Please check your data source."}), 500
     except MissingSchema as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{str(e)}'}, namespace='/')
+        socketio.emit('log', {'data': f'{str(e)}'}, room=str(project_id), namespace='/')
         return jsonify({'error': 'First you need to add some credentials like: X-CloudCart-ApiKey and OpenAI Key!'}), 500
     except Exception as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{str(e)}'}, namespace='/')
+        socketio.emit('log', {'data': f'{str(e)}'}, room=str(project_id), namespace='/')
         return jsonify({'error': str(e)}), 500
 
 
@@ -280,7 +298,6 @@ def set_settings():
     data = request.get_json()
 
     project_id = data.get('project_id')  # Get project_id from the data
-
     if not data or not project_id:  # Check if both data and project_id are present
         app.logger.error('No data provided')  # Logging example
         return jsonify({'error': 'No data provided'}), 400
@@ -289,28 +306,28 @@ def set_settings():
         # Assign the settings
         app_settings = data.get('app_settings')
         seo_settings = data.get('seo_settings')
+        short_description_settings = data.get('short_description_settings')
         prompt_settings = data.get('prompt_settings')
 
         # Validate the data here if needed...
 
         # Call the function with the provided settings
         
-        get_all_products(db, Session, Statistics, app_settings, seo_settings, prompt_settings, project_id)
-
+        get_all_products(db, Statistics, Processed, app_settings, seo_settings, prompt_settings, short_description_settings, project_id)
         
         return jsonify({'status': 'success'}), 200
     except KeyError as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'}, namespace='/')
+        socketio.emit('log', {'data': f'{tb} Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'},room=str(project_id), namespace='/')
         return jsonify({'error': f"The key '{str(e)}' was not found in the data. Please check your data source."}), 500
 
     except MissingSchema as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{str(e)}\n{tb}'}, namespace='/')
+        socketio.emit('log', {'data': f'{str(e)}\n{tb}'},room=str(project_id), namespace='/')
         return jsonify({'error': 'First you need to add some credentials like: X-CloudCart-ApiKey and OpenAI Key!'}), 500
     except Exception as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{str(e)}\n{tb}'}, namespace='/')
+        socketio.emit('log', {'data': f'{str(e)}\n{tb}'},room=str(project_id), namespace='/')
         return jsonify({'error': str(e)}), 500
     
 ####### AUTH ROUTES #######
@@ -426,7 +443,7 @@ def save_settings(project_id):
         return jsonify({'message': 'No project found with this ID.'}), 404
 
     # Flatten data dictionary
-    flattened_data = {**data.get('app_settings', {}), **data.get('seo_settings', {}), **data.get('prompt_settings', {})}
+    flattened_data = {**data.get('app_settings', {}), **data.get('seo_settings', {}), **data.get('prompt_settings', {}), **data.get('short_description_settings', {})}
 
 
     # Define mapping from data keys to database fields
@@ -475,6 +492,16 @@ def save_settings(project_id):
         "enable_product_description": "enable_product_description",
         "enable_generate_meta_description": "enable_generate_meta_description",
         "enable_product_short_description": "enable_product_short_description",
+        "short_purpose": "short_purpose",
+        "short_length": "short_length",
+        "short_temperature": "short_temperature",
+        "short_language": "short_language",
+        "short_product_name": "short_product_name",
+        "short_short_description": "short_short_description",
+        "short_vendor_name": "short_vendor_name",
+        "short_category_name": "short_category_name",
+        "short_property_option_values": "short_property_option_values",
+        "short_use_website_name": "short_use_website_name",
     }
 
     # Update project settings

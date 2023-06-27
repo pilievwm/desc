@@ -15,14 +15,18 @@
 
     <script type="text/javascript" charset="utf-8">
         var socket = io.connect('https://' + document.domain + ':' + location.port + '/');
+        socket.on('connect', function() {
+            socket.emit('join', { 'project_id': '{{ project.id }}', 'username': '{{ current_user.name }}' });
+        });
         socket.on('log', function(msg) {
             document.getElementById('output').textContent += msg.data + '\n';
-
+    
             // Scroll to the bottom
             var outputDiv = document.getElementById("output");
             outputDiv.scrollTop = outputDiv.scrollHeight;
         });
     </script>
+    
     <style>
     .bootstrap-tagsinput {
         width: 100%;
@@ -192,7 +196,7 @@
                                     
                                         <div class="mb-3">
                                             <label for="specific_product" class="form-label">Process only specific product ID:</label>
-                                            <input type="text" class="form-control" id="specific_product" placeholder="Example: 3" value="{{ project.specific_product }}">
+                                            <input type="text" class="form-control" id="specific_product" placeholder="Example: 3" value="{{ project.specific_product | default('', true) }}">
                                             <small class="text-muted">If <mark>empty</mark> it will process all products</small>
                                         </div>
 
@@ -269,6 +273,7 @@
                                             <input type="range" class="form-range" value="{{ project.short_temperature | default('0') }}" min="0" max="2" step="0.1" id="short_temperature" oninput="updateShortTemperatureValue(this.value)">
                                             <span id="shortTemperatureValue">{{ project.short_temperature | default('0', true) }}</span>
                                         </div>
+                                        </script>
                                         
                                         <div class="mb-3">
                                             <label for="short_language" class="form-label">Language</label>
@@ -288,8 +293,8 @@
                                         </div>
                         
                                         <div class="form-check form-switch">
-                                            <input class="form-check-input" type="checkbox" id="short_description" {% if project.short_description %}checked{% endif %}>
-                                            <label class="form-check-label" for="short_description">Include Description</label>
+                                            <input class="form-check-input" type="checkbox" id="short_short_description" {% if project.short_short_description %}checked{% endif %}>
+                                            <label class="form-check-label" for="short_short_description">Include Short Description</label>
                                         </div>
                         
                                         <div class="form-check form-switch">
@@ -341,13 +346,6 @@
                                             <input type="range" class="form-range" value="{{ project.temperature | default('0') }}" min="0" max="2" step="0.1" id="temperature" oninput="updateTemperatureValue(this.value)">
                                             <span id="temperatureValue">{{ project.temperature | default('0', true) }}</span>
                                         </div>
-                                        
-                                        <script>
-                                        function updateTemperatureValue(val) {
-                                            document.getElementById('temperatureValue').innerHTML = val;
-                                        }
-                                        </script>
-                                        
 
                                         <div class="mb-3">
                                             <label for="language" class="form-label">Language</label>
@@ -538,6 +536,7 @@
                 <div>
                     <button id="stopButton" type="button" class="btn btn-danger ps-5 pe-5 pb-3 pt-3">Cancel the process</button>
                     <button id="calculateButton" class="btn btn-secondary ps-5 pe-5 pb-3 pt-3">Calculate</button>
+                    <button id="clear-records-button" class="btn btn-outline-warning ps-5 pe-5 pb-3 pt-3">Clear Processed Records</button>
                 </div>
                 <form id="settingsFormSubmit" onsubmit="event.preventDefault(); $('#settingsForm').submit();">
                     <input type="submit" value="Generate and Save" class="btn btn-primary ps-5 pe-5 pb-3 pt-3">
@@ -558,6 +557,12 @@
         }
         function updateLengthValue(val) {
             document.getElementById('lengthValue').textContent = val;
+        }
+        function updateShortTemperatureValue(val) {
+            document.getElementById('shortTemperatureValue').textContent = val;
+        }
+        function updateShortLengthValue(val) {
+            document.getElementById('shortLengthValue').textContent = val;
         }
     </script>
 
@@ -594,6 +599,19 @@
                         "enable_product_description": $('#enable_product_description').is(':checked'),
                         "enable_product_short_description": $('#enable_product_short_description').is(':checked'),
                         "enable_generate_meta_description": $('#enable_generate_meta_description').is(':checked'),
+                    },
+                    "short_description_settings": {
+                        "short_purpose": $('#short_purpose').val(),
+                        "short_length": parseInt($('#short_length').val(), 0),
+                        "short_temperature": parseFloat($('#short_temperature').val()) || 0,
+                        "short_language": $('#short_language').val(),
+                        "short_product_name": $('#short_product_name').is(':checked'),
+                        "short_short_description": $('#short_short_description').is(':checked'),
+                        "short_vendor_name": $('#short_vendor_name').is(':checked'),
+                        "short_category_name": $('#short_category_name').is(':checked'),
+                        "short_property_option_values": $('#short_property_option_values').is(':checked'),
+                        "short_use_website_name": $('#short_use_website_name').is(':checked'),
+
                     },
                     "seo_settings": {
                         "link_to_product": $('#link_to_product').is(':checked'),
@@ -683,6 +701,7 @@
         $(this).prop("disabled", true);
 
         var data = {
+            "project_id": "{{ project.id }}",
             "app_settings": {
                 "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
                 "openai_key": $('#openai_key').val(),
@@ -757,6 +776,31 @@
 
 <script>
     $(document).ready(function() {
+        // Handle button click event
+        $('#clear-records-button').click(function() {
+            // Send AJAX request
+            $.ajax({
+                url: '/clear_processed_records',
+                type: 'POST',
+                data: JSON.stringify({ "project_id": "{{ project.id }}" }),  // Replace with your project ID
+                contentType: 'application/json',
+                success: function(response) {
+                    // Handle success response
+                    console.log(response);
+                    alert('Processed records cleared!');
+                },
+                error: function(xhr, status, error) {
+                    // Handle error response
+                    console.error(xhr.responseText);
+                    alert('Error clearing processed records.');
+                }
+            });
+        });
+    });
+</script>
+
+<script>
+    $(document).ready(function() {
     
         $('#stopButton').prop('disabled', true); // Disable the "Stop" button initially
     
@@ -770,6 +814,8 @@
             $.ajax({
                 url: '/stop_process',
                 type: 'POST',
+                contentType: 'application/json; charset=utf-8',
+                data: JSON.stringify({ "project_id": "{{ project.id }}" }),
             })
             .done(function(response) {
                 console.log(response);

@@ -6,7 +6,6 @@ from datetime import datetime
 def create_statistics(db):
     class Statistics(db.Model):
         __tablename__ = 'statistics'
-
         id = db.Column(db.Integer, primary_key=True)
         project_id = db.Column(db.Integer, nullable=False)
         task_id = db.Column(db.Integer, nullable=True)
@@ -20,6 +19,21 @@ def create_statistics(db):
         cost = db.Column(db.Float, nullable=False, default=0.0)
 
     return Statistics
+
+def create_processed(db):
+    class Processed(db.Model):
+        __tablename__ = 'processed'
+        id = db.Column(db.Integer, primary_key=True)
+        project_id = db.Column(db.Integer, nullable=False)
+        task_id = db.Column(db.Integer, nullable=True)
+        model = db.Column(db.String(128), nullable=True)
+        record_id = db.Column(db.Integer, nullable=False)
+        datetime = db.Column(db.DateTime, default=datetime.utcnow)
+        output = db.Column(db.Text, nullable=True)
+        page_url = db.Column(db.Text, nullable=True)  # Add this line to store the page URL
+
+    return Processed
+
 
 def create_user_class(db):
     class User(UserMixin, db.Model):
@@ -79,4 +93,15 @@ def create_project_class(db):
         domain = db.Column(db.String(128))
         created_at = db.Column(db.DateTime, default=datetime.utcnow)
         updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+        # New Fields
+        short_length = db.Column(db.Integer, nullable=True)
+        short_temperature = db.Column(db.Float, nullable=True)
+        short_language = db.Column(db.String(128), nullable=True)
+        short_purpose = db.Column(db.String(128), nullable=True)
+        short_product_name = db.Column(db.Boolean, nullable=True)
+        short_short_description = db.Column(db.Boolean, nullable=True)
+        short_vendor_name = db.Column(db.Boolean, nullable=True)
+        short_category_name = db.Column(db.Boolean, nullable=True)
+        short_property_option_values = db.Column(db.Boolean, nullable=True)
+        short_use_website_name = db.Column(db.Boolean, nullable=True)
     return Project
