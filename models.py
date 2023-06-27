@@ -58,7 +58,7 @@ def create_project_class(db):
         use_seo_package = db.Column(db.Boolean)
         currency = db.Column(db.String(128))
         length = db.Column(db.Integer)
-        test_mode = db.Column(db.Integer)
+        test_mode = db.Column(db.Boolean)
         print_prompt = db.Column(db.Boolean)
         only_active = db.Column(db.Boolean)
         skip_products_with_description = db.Column(db.Integer)
@@ -107,4 +107,5 @@ def create_project_class(db):
         short_use_website_name = db.Column(db.Boolean, nullable=True)
         short_additional_instructions = db.Column(db.Text, nullable=True)
         additional_instructions = db.Column(db.Text, nullable=True)
+        in_progress = db.Column(db.Boolean, nullable=True)
     return Project

@@ -13,6 +13,7 @@ import query
 from sqlalchemy import func, desc
 
 
+
 stop_process = {}
 
 def reset_stop():
@@ -158,7 +159,7 @@ def updateProduct(product_id, description, short_description, meta_description, 
             else:  # On the last attempt, fail with an exception
                 raise
 
-def get_keywords(seo_settings, app_settings, product):
+def get_keywords(seo_settings, app_settings, product, project_id):
     if seo_settings['use_keywords'] == 0:
         return ''
     prompt = f'You are skilled SEO expert. Research ONLY the top {seo_settings["use_keywords"]} long-tail keywords, from the title of this product in {app_settings["language"]} language. Use the category \"{product["category_name"]}\" and the brand \"{product["vendor_name"]}\" only if you are absolutly sure that the information is critical for the top long-tail keyword. Please note that I want only the words without any other explanations from your side! Return the keywords by comma separated.\n'
@@ -177,7 +178,7 @@ def get_keywords(seo_settings, app_settings, product):
             # If the request was successful, break out of the loop
             break
         except openai.error.APIConnectionError as e:  # replace ApiError with APIConnectionError
-            if e.http_status in [500, 502, 503]:  # include 502 status code
+            if e.http_status in [429, 500, 502, 503]:  # include 502 status code
 
                 # Wait for a bit before retrying and print an error message
                 wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
@@ -195,7 +196,7 @@ def get_keywords(seo_settings, app_settings, product):
     # Do something with the response, e.g., print the message content
     return(response['choices'][0]['message']['content'])
 
-def generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description):
+def generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description, project_id):
     if description is None:
         description = ''
     if seo_settings.get('use_keywords', 0) == 0:
@@ -221,7 +222,7 @@ def generate_meta_description(product_dict, prompt_settings, app_settings, seo_s
             # If the request was successful, break out of the loop
             break
         except openai.error.APIConnectionError as e:  # replace ApiError with APIConnectionError
-            if e.http_status in [500, 502, 503]:  # include 502 status code
+            if e.http_status in [429, 500, 502, 503]:  # include 502 status code
 
                 # Wait for a bit before retrying and print an error message
                 wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
@@ -261,7 +262,7 @@ def generate_short_description(product_dict, prompt_settings, description, app_s
             # If the request was successful, break out of the loop
             break
         except openai.error.APIConnectionError as e:  # replace ApiError with APIConnectionError
-            if e.http_status in [500, 502, 503]:  # include 502 status code
+            if e.http_status in [429, 500, 502, 503]:  # include 502 status code
 
                 # Wait for a bit before retrying and print an error message
                 wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
@@ -279,7 +280,7 @@ def generate_short_description(product_dict, prompt_settings, description, app_s
     # Do something with the response, e.g., print the message content
     return response
 
-def create_prompt(product, prompt_settings, app_settings, seo_settings):
+def create_prompt(product, prompt_settings, app_settings, seo_settings, project_id):
     # Initialize an empty string for the prompt
     prompt = ''
     # Check if SEO package is in use
@@ -294,7 +295,7 @@ def create_prompt(product, prompt_settings, app_settings, seo_settings):
         if seo_settings['link_to_more_from_same_vendor_and_category']:
             more_from_same_vendor_and_category_link = f'<a href="{app_settings["url"]}/category/{product["category_slug"]}?vendors={product["vendor_slug"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"{product["vendor_name"]} - {product["category_name"]}\"">give the user the option to see more from \"{product["vendor_name"]}\"</a>'
         if seo_settings['use_keywords'] != 0:
-            keywords = get_keywords(seo_settings, app_settings, product)
+            keywords = get_keywords(seo_settings, app_settings, product, project_id)
         if seo_settings['link_keyword_to_product']:
             keyword_product_link = f'<a href="{app_settings["url"]}/product/{product["url_handle"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"{product["product_name"]}\""> put the keywords here </a>'
 
@@ -367,7 +368,7 @@ def create_prompt(product, prompt_settings, app_settings, seo_settings):
     
     return prompt
 
-def create_prompt_short_description(product, prompt_settings, app_settings, seo_settings, short_description_settings):
+def create_prompt_short_description(product, prompt_settings, app_settings, seo_settings, short_description_settings, project_id):
     # Initialize an empty string for the prompt
     prompt = ''
 
@@ -431,8 +432,14 @@ def create_prompt_short_description(product, prompt_settings, app_settings, seo_
     return prompt
 
 
-def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prompt_settings, short_description_settings, project_id):
+def get_all_products(db, Statistics, Processed, Project, app_settings, seo_settings, prompt_settings, short_description_settings, project_id):
     
+    project = Project.query.get(project_id)
+    project = db.session.query(Project).get(project_id)
+    if project:
+        project.in_progress = True
+        db.session.commit()
+
     stop_process[project_id] = False
     
     last_processed_product_id, last_page_url = get_last_processed_product(db, Processed, project_id)
@@ -480,6 +487,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
         if stop_process.get(project_id, False):
             socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
             stop(project_id)  # Stop processexit
+            project = db.session.query(Project).get(project_id)
+            if project:
+                project.in_progress = False
+                db.session.commit()
             return
 
         response = requests.get(url, headers=headers)
@@ -516,10 +527,14 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                 response = None
                 # Create a prompt for each product
 
-                prompt = create_prompt(product_dict, prompt_settings, app_settings, seo_settings)
+                prompt = create_prompt(product_dict, prompt_settings, app_settings, seo_settings, project_id)
                 if app_settings['print_prompt']:
                     socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
                     socketio.emit('log', {'data': f'\nProcess completed...'},room=str(project_id), namespace='/')
+                    project = db.session.query(Project).get(project_id)
+                    if project:
+                        project.in_progress = False
+                        db.session.commit()
                     return(prompt)
                 socketio.emit('log', {'data': f"Processing product with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"},room=str(project_id), namespace='/')
                 
@@ -539,7 +554,7 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                         # If the request was successful, break out of the loop
                         break
                     except openai.error.APIConnectionError as e:  # replace ApiError with APIConnectionError
-                        if e.http_status in [500, 502, 503]:  # include 502 status code
+                        if e.http_status in [429, 500, 502, 503]:  # include 502 status code
 
                             # Wait for a bit before retrying and print an error message
                             wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
@@ -561,6 +576,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
 
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
+                        project = db.session.query(Project).get(project_id)
+                        if project:
+                            project.in_progress = False
+                            db.session.commit()
                         socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
                         return
                     
@@ -581,6 +600,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
 
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
+                        project = db.session.query(Project).get(project_id)
+                        if project:
+                            project.in_progress = False
+                            db.session.commit()
                         socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
                         return
 
@@ -602,9 +625,13 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                 response = None
                 prompt = None
 
-                prompt = create_prompt_short_description(product_dict, prompt_settings, app_settings, seo_settings, short_description_settings)
+                prompt = create_prompt_short_description(product_dict, prompt_settings, app_settings, seo_settings, short_description_settings, project_id)
                 if app_settings['print_prompt']:
                     socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
+                    project = db.session.query(Project).get(project_id)
+                    if project:
+                        project.in_progress = False
+                        db.session.commit()
                     return(prompt)
                 # Create a prompt for each product
                 
@@ -620,6 +647,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
                         socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                        project = db.session.query(Project).get(project_id)
+                        if project:
+                            project.in_progress = False
+                            db.session.commit()
                         return             
 
                     # Calculate cost
@@ -639,6 +670,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
                         socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                        project = db.session.query(Project).get(project_id)
+                        if project:
+                            project.in_progress = False
+                            db.session.commit()
                         return 
 
                     # Calculate cost
@@ -658,8 +693,12 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                 response = None
                 # Create a prompt for each product
 
-                response = generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description)
+                response = generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description, project_id)
                 if app_settings["print_prompt"] is True:
+                    project = db.session.query(Project).get(project_id)
+                    if project:
+                        project.in_progress = False
+                        db.session.commit()
                     return
                 socketio.emit('log', {'data': f'\nMeta description generation...'},room=str(project_id), namespace='/')
                 meta_description = response['choices'][0]['message']['content']
@@ -670,6 +709,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
                         socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                        project = db.session.query(Project).get(project_id)
+                        if project:
+                            project.in_progress = False
+                            db.session.commit()
                         return            
 
                     # Calculate cost
@@ -689,6 +732,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
                         socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                        project = db.session.query(Project).get(project_id)
+                        if project:
+                            project.in_progress = False
+                            db.session.commit()
                         return 
 
                     # Calculate cost
@@ -734,6 +781,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
             if stop_process.get(project_id, False):
                 stop(project_id)  # Stop process
                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                project = db.session.query(Project).get(project_id)
+                if project:
+                    project.in_progress = False
+                    db.session.commit()
                 break 
 
             response = requests.get(url, headers=headers)
@@ -775,10 +826,14 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                     if enable_product_description:
 
                         # Create a prompt for each product
-                        prompt = create_prompt(product_dict, prompt_settings, app_settings, seo_settings)
+                        prompt = create_prompt(product_dict, prompt_settings, app_settings, seo_settings, project_id)
                         if app_settings['print_prompt']:
                             socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
                             socketio.emit('log', {'data': f'\nProcess completed...'},room=str(project_id), namespace='/')
+                            project = db.session.query(Project).get(project_id)
+                            if project:
+                                project.in_progress = False
+                                db.session.commit()
                             return(prompt)
                         socketio.emit('log', {'data': f"Processing product with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"},room=str(project_id), namespace='/')
                         
@@ -798,7 +853,7 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                                 # If the request was successful, break out of the loop
                                 break
                             except openai.error.APIConnectionError as e:  # replace ApiError with APIConnectionError
-                                if e.http_status in [500, 502, 503]:  # include 502 status code
+                                if e.http_status in [429, 500, 502, 503]:  # include 502 status code
 
                                     # Wait for a bit before retrying and print an error message
                                     wait_time = 2 * (attempt + 1)  # Wait for 2 seconds, then 3, 4, etc.
@@ -820,6 +875,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                project = db.session.query(Project).get(project_id)
+                                if project:
+                                    project.in_progress = False
+                                    db.session.commit()
                                 return 
                             
                             # Calculate cost
@@ -838,6 +897,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                project = db.session.query(Project).get(project_id)
+                                if project:
+                                    project.in_progress = False
+                                    db.session.commit()
                                 return 
 
                             # Calculate cost
@@ -858,10 +921,14 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                         response = None
                         prompt = None
                         # Create a prompt for each product
-                        prompt = create_prompt_short_description(product_dict, prompt_settings, app_settings, seo_settings, short_description_settings)
+                        prompt = create_prompt_short_description(product_dict, prompt_settings, app_settings, seo_settings, short_description_settings, project_id)
                         if app_settings['print_prompt']:
                             socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
                             socketio.emit('log', {'data': f'\nProcess completed...'},room=str(project_id), namespace='/')
+                            project = db.session.query(Project).get(project_id)
+                            if project:
+                                project.in_progress = False
+                                db.session.commit()
                             return(prompt)
                         # Create a prompt for each product
                         
@@ -873,6 +940,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                project = db.session.query(Project).get(project_id)
+                                if project:
+                                    project.in_progress = False
+                                    db.session.commit()
                                 return              
 
                             # Calculate cost
@@ -891,6 +962,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                project = db.session.query(Project).get(project_id)
+                                if project:
+                                    project.in_progress = False
+                                    db.session.commit()
                                 return 
 
                             # Calculate cost
@@ -910,8 +985,12 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                         response = None
                         # Create a prompt for each product
 
-                        response = generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description)
+                        response = generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description, project_id)
                         if app_settings["print_prompt"] is True:
+                            project = db.session.query(Project).get(project_id)
+                            if project:
+                                project.in_progress = False
+                                db.session.commit()
                             return
                         socketio.emit('log', {'data': f'\nMeta description generation...'},room=str(project_id), namespace='/')
                         meta_description = response['choices'][0]['message']['content']
@@ -922,6 +1001,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                project = db.session.query(Project).get(project_id)
+                                if project:
+                                    project.in_progress = False
+                                    db.session.commit()
                                 return             
 
                             # Calculate cost
@@ -941,6 +1024,10 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
+                                project = db.session.query(Project).get(project_id)
+                                if project:
+                                    project.in_progress = False
+                                    db.session.commit()
                                 return 
 
                             # Calculate cost
@@ -959,10 +1046,18 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                     if test_mode > 0:
                         socketio.emit('log', {'data': f'\nTest mode completed...'},room=str(project_id), namespace='/')
                         limit_reached = True
+                        project = db.session.query(Project).get(project_id)
+                        if project:
+                            project.in_progress = False
+                            db.session.commit()
                         return
             ###### NEXT PAGE ######
             url = data['links']['next'] if 'next' in data['links'] else None
-    socketio.emit('log', {'data': f'\nProcess completed all...'},room=str(project_id), namespace='/')
+    socketio.emit('log', {'data': f'\nCompleted...'},room=str(project_id), namespace='/')
+    project = db.session.query(Project).get(project_id)
+    if project:
+        project.in_progress = False
+        db.session.commit()
     return(200)
 
 def stop(project_id):
@@ -1005,7 +1100,7 @@ def calculate_all(app_settings, project_id):
         
 
     # Get the total tokens from the response
-    getTotalProducts = getProducts(app_settings)
+    getTotalProducts = getProducts(app_settings, project_id)
 
     # Convert length in words to tokens
     length_in_tokens = app_settings['length'] * tokens_per_word
@@ -1025,7 +1120,7 @@ def calculate_all(app_settings, project_id):
     return formatted_cost
 
 
-def getProducts(app_settings):
+def getProducts(app_settings, project_id):
     headers = {
         'X-CloudCart-ApiKey': app_settings['X-CloudCart-ApiKey'],
     }

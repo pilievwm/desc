@@ -44,6 +44,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'da
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 session = db.session
+from generator import stop, get_all_products, calculate_all, set_socketio, getCategories, getVendors
 
 login_manager = LoginManager(app)
 login_manager.login_view = 'login' # Redirect to Google login if user is not logged in
@@ -263,6 +264,13 @@ def users():
     users = User.query.all()
     return render_template('users.html', users=users)
 
+@app.route('/get_status')
+def get_status():
+    project_id = request.args.get('project_id')  # Retrieve the project_id from the query parameters
+    project = Project.query.get(project_id)
+    in_progress = project.in_progress
+    return jsonify({'in_progress': in_progress})
+
 @app.route('/ai/<int:project_id>')
 @login_required
 def mypage(project_id):
@@ -337,7 +345,7 @@ def set_settings():
 
         # Call the function with the provided settings
         
-        get_all_products(db, Statistics, Processed, app_settings, seo_settings, prompt_settings, short_description_settings, project_id)
+        get_all_products(db, Statistics, Processed, Project, app_settings, seo_settings, prompt_settings, short_description_settings, project_id)
         
         return jsonify({'status': 'success'}), 200
     except KeyError as e:
