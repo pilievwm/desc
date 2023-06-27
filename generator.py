@@ -866,7 +866,7 @@ def get_all_products(db, Statistics, Processed, app_settings, seo_settings, prom
                         # Create a prompt for each product
                         
                         response = generate_short_description(product_dict, prompt_settings, description, app_settings, seo_settings, short_description_settings, project_id, prompt)
-                        socketio.emit('log', {'data': f'Short description generation...'},room=str(project_id), namespace='/')
+                        socketio.emit('log', {'data': f'\nShort description generation for {product_dict["product_name"]} with ID: {product_dict["product_id"]}'},room=str(project_id), namespace='/')
                         short_description = response['choices'][0]['message']['content']
                         ##### TEST MODE ONLY #####
                         if test_mode != 0:

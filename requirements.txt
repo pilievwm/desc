@@ -15,4 +15,3 @@ flask_sqlalchemy
 flask-migrate
 sqlalchemy
 oauthlib
-functools
