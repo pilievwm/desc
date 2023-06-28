@@ -176,6 +176,10 @@ create_tables()
 def stop_process():
     project_id = request.json.get('project_id')
     stop(project_id)
+    project = db.session.query(Project).get(project_id)
+    if project:
+        project.in_progress = False
+        db.session.commit()
     return 'Process stopped.'
 
 @app.route('/')
@@ -267,7 +271,7 @@ def users():
 @app.route('/get_status')
 def get_status():
     project_id = request.args.get('project_id')  # Retrieve the project_id from the query parameters
-    project = Project.query.get(project_id)
+    project = session.get(Project, project_id)
     in_progress = project.in_progress
     return jsonify({'in_progress': in_progress})
 
@@ -350,16 +354,28 @@ def set_settings():
         return jsonify({'status': 'success'}), 200
     except KeyError as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{tb} Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'},room=str(project_id), namespace='/')
+        socketio.emit('log', {'data': f'{str(e)} Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'},room=str(project_id), namespace='/')
+        project = db.session.query(Project).get(project_id)
+        if project:
+            project.in_progress = False
+            db.session.commit()
         return jsonify({'error': f"The key '{str(e)}' was not found in the data. Please check your data source."}), 500
 
     except MissingSchema as e:
         tb = traceback.format_exc()  # get the traceback
         socketio.emit('log', {'data': f'{str(e)}\n{tb}'},room=str(project_id), namespace='/')
+        project = db.session.query(Project).get(project_id)
+        if project:
+            project.in_progress = False
+            db.session.commit()
         return jsonify({'error': 'First you need to add some credentials like: X-CloudCart-ApiKey and OpenAI Key!'}), 500
     except Exception as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{str(e)}\n{tb}'},room=str(project_id), namespace='/')
+        project = db.session.query(Project).get(project_id)
+        if project:
+            project.in_progress = False
+            db.session.commit()
+        socketio.emit('log', {'data': f'{str(e)}\n'},room=str(project_id), namespace='/')
         return jsonify({'error': str(e)}), 500
     
 
@@ -434,17 +450,18 @@ def new_project():
         db.session.add(project)
         db.session.commit()
 
-        new_statistics = Statistics(
+        '''new_statistics = Statistics(
             project_id=project.id,  # Here is where you access the id of the new project
             prompt_tokens=0,
             completion_tokens=0,
             total_tokens=0,
+            record_id=0,
             cost=0
         )
 
         # Add and commit new statistics to write it to the database
         db.session.add(new_statistics)
-        db.session.commit()
+        db.session.commit()'''
 
         return jsonify({'message': 'Project successfully created.'})
     
@@ -564,6 +581,7 @@ def save_settings(project_id):
         "short_use_website_name": "short_use_website_name",
         "short_additional_instructions": "short_additional_instructions",
         "additional_instructions": "additional_instructions",
+        "system_instructions": "system_instructions",
     }
 
     # Update project settings

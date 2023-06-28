@@ -3,11 +3,21 @@
 from flask_login import UserMixin
 from datetime import datetime
 
+def create_user_class(db):
+    class User(UserMixin, db.Model):
+        id = db.Column(db.Integer, primary_key=True)
+        name = db.Column(db.String(100), nullable=False)
+        email = db.Column(db.String(100), nullable=False, unique=True)
+        super_user = db.Column(db.Boolean, default=False)
+        projects = db.relationship('Project', backref='user', lazy=True, cascade="all, delete-orphan")
+    return User
+
+
 def create_statistics(db):
     class Statistics(db.Model):
         __tablename__ = 'statistics'
         id = db.Column(db.Integer, primary_key=True)
-        project_id = db.Column(db.Integer, nullable=False)
+        project_id = db.Column(db.Integer, db.ForeignKey('project.id', ondelete='CASCADE'), nullable=False)
         task_id = db.Column(db.Integer, nullable=True)
         model = db.Column(db.String(128), nullable=True)
         test_mode = db.Column(db.Integer , nullable=True)
@@ -17,36 +27,27 @@ def create_statistics(db):
         completion_tokens = db.Column(db.Integer, nullable=False, default=0)
         total_tokens = db.Column(db.Integer, nullable=False, default=0)
         cost = db.Column(db.Float, nullable=False, default=0.0)
-
     return Statistics
 
 def create_processed(db):
     class Processed(db.Model):
         __tablename__ = 'processed'
         id = db.Column(db.Integer, primary_key=True)
-        project_id = db.Column(db.Integer, nullable=False)
+        project_id = db.Column(db.Integer, db.ForeignKey('project.id', ondelete='CASCADE'), nullable=False)
         task_id = db.Column(db.Integer, nullable=True)
         model = db.Column(db.String(128), nullable=True)
         record_id = db.Column(db.Integer, nullable=False)
         datetime = db.Column(db.DateTime, default=datetime.utcnow)
         output = db.Column(db.Text, nullable=True)
         page_url = db.Column(db.Text, nullable=True)  # Add this line to store the page URL
-
     return Processed
 
-
-def create_user_class(db):
-    class User(UserMixin, db.Model):
-        id = db.Column(db.Integer, primary_key=True)
-        name = db.Column(db.String(100), nullable=False)
-        email = db.Column(db.String(100), nullable=False, unique=True)
-        super_user = db.Column(db.Boolean, default=False)
-    return User
 
 def create_project_class(db):
     class Project(db.Model):
         __tablename__ = 'project'
         id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+        user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
         x_cloudcart_apikey = db.Column(db.String(128))
         enable_product_description = db.Column(db.Boolean)
         enable_generate_meta_description = db.Column(db.Boolean)
@@ -90,11 +91,9 @@ def create_project_class(db):
         category_name = db.Column(db.Boolean)
         property_option_values = db.Column(db.Boolean)
         use_website_name = db.Column(db.Boolean)
-        user_id = db.Column(db.Integer, nullable=False)
         domain = db.Column(db.String(128))
         created_at = db.Column(db.DateTime, default=datetime.utcnow)
         updated_at = db.Column(db.DateTime, default=datetime.utcnow)
-        # New Fields
         short_length = db.Column(db.Integer, nullable=True)
         short_temperature = db.Column(db.Float, nullable=True)
         short_language = db.Column(db.String(128), nullable=True)
@@ -108,4 +107,9 @@ def create_project_class(db):
         short_additional_instructions = db.Column(db.Text, nullable=True)
         additional_instructions = db.Column(db.Text, nullable=True)
         in_progress = db.Column(db.Boolean, nullable=True)
+        system_instructions = db.Column(db.Text, nullable=True)
+        user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
+        statistics = db.relationship('Statistics', backref='project', lazy=True, cascade="all, delete-orphan")
+        processed_records = db.relationship('Processed', backref='project', lazy=True, cascade="all, delete-orphan")
+
     return Project

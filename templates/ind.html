@@ -159,7 +159,7 @@
                                             <small class="text-muted">If enabled, it will include the service <mark>generating shoty description</mark></small>
                                         </div>
                                         <div class="mb-3 form-check form-switch d-none">
-                                            <input type="checkbox" class="form-check-input" id="test_mode" {% if project.test_mode %}checked{% endif %}">
+                                            <input type="checkbox" class="form-check-input" id="test_mode" {% if project.test_mode or project.test_mode is none %}checked{% endif %}>
                                             <label class="form-check-label" for="test_mode">Test Mode is Active!</label>
                                             <br>
                                             <small class="text-muted">If disabled it will update the products at the store</small>
@@ -439,6 +439,12 @@
                                             <label class="form-label" for="additional_instructions">Additional instructions</label>
                                             <textarea class="form-control" id="additional_instructions" rows="3">{{ project.additional_instructions | default('', true) }}</textarea>
                                         </div>
+                                        <hr md-3>
+                                        <div class="md-3">
+                                            <label class="form-label" for="system_instructions">Overwrite System instructions</label>
+                                            <textarea class="form-control" id="system_instructions" rows="6" placeholder="You must add html tags to the text and you must bold important parts and words! Do not use H1 tags, use H2 and H3 tags instead! The links at the text should be accross the entire text not only at the end!">{{ project.system_instructions | default('', true) }}</textarea>
+                                            <small class="text-muted">Add instructions only if you know what you are doing!</small>
+                                        </div>
                                     </fieldset>
                                 </div>
                             </div>
@@ -487,7 +493,12 @@
                                                 <label class="form-check-label" for="link_to_more_from_same_vendor_and_category">Link to view more products</label>
                                                 <small>The link will be generated to the category with included filter by Vendor</small>
                                             </div>
-                                    
+                                            <hr md-3> 
+                                            
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="link_keyword_to_product" {% if project.link_keyword_to_product %}checked{% endif %}>
+                                                <label class="form-check-label" for="link_keyword_to_product">Add Links to Keywords Into the Text</label>
+                                            </div>
                                             <div class="mb-3">
 
                                                 <hr md-3> 
@@ -503,8 +514,11 @@
                                                 </select>
                                                 
                                             </div>
-                                            
-                                    
+                                            <div class="mb-3">
+                                                <label for="use_free_keywords" class="form-label md-3">Use Free Keywords</label>
+                                                <input type="text" class="form-control" data-role="tagsinput" id="use_free_keywords" value="{{ project.use_free_keywords | default('', true) }}">
+                                            </div>
+                                            <hr md-3> 
                                             <div class="mb-3">
                                                 <label for="keywords_density" class="form-label">Keywords Density</label>
                                                 <select class="form-select" id="keywords_density">
@@ -513,17 +527,15 @@
                                                     <option value="3" {% if project.keywords_density == 3 %}selected{% endif %}>Use 3 times the generated keywords</option>
                                                     <option value="4" {% if project.keywords_density == 4 %}selected{% endif %}>Use 4 times the generated keywords</option>
                                                     <option value="5" {% if project.keywords_density == 5 %}selected{% endif %}>Use 5 times the generated keywords</option>
+                                                    <option value="6" {% if project.keywords_density == 6 %}selected{% endif %}>Use 6 times the generated keywords</option>
+                                                    <option value="7" {% if project.keywords_density == 7 %}selected{% endif %}>Use 7 times the generated keywords</option>
+                                                    <option value="8" {% if project.keywords_density == 8 %}selected{% endif %}>Use 8 times the generated keywords</option>
+                                                    <option value="9" {% if project.keywords_density == 9 %}selected{% endif %}>Use 9 times the generated keywords</option>
+                                                    <option value="10" {% if project.keywords_density == 10 %}selected{% endif %}>Use 10 times the generated keywords</option>
                                                 </select>
                                                 
                                             </div>
                                             
-                                            
-                                            <div class="mb-3">
-                                                <label for="use_free_keywords" class="form-label md-3">Use Free Keywords</label>
-                                                <input type="text" class="form-control" data-role="tagsinput" id="use_free_keywords" value="{{ project.use_free_keywords | default('', true) }}">
-                                            </div>
-                                            
-
                                             <div class="mb-3">
                                                 <label for="link_keyword_density" class="form-label">Link Keyword Density</label>
                                                 <select class="form-select" id="link_keyword_density">
@@ -532,15 +544,15 @@
                                                     <option value="3" {% if project.link_keyword_density == 3 %}selected{% endif %}>Add link to 3 keywords</option>
                                                     <option value="4" {% if project.link_keyword_density == 4 %}selected{% endif %}>Add link to 4 keywords</option>
                                                     <option value="5" {% if project.link_keyword_density == 5 %}selected{% endif %}>Add link to 5 keywords</option>
+                                                    <option value="6" {% if project.link_keyword_density == 6 %}selected{% endif %}>Add link to 6 keywords</option>
+                                                    <option value="7" {% if project.link_keyword_density == 7 %}selected{% endif %}>Add link to 7 keywords</option>
+                                                    <option value="8" {% if project.link_keyword_density == 8 %}selected{% endif %}>Add link to 8 keywords</option>
+                                                    <option value="9" {% if project.link_keyword_density == 9 %}selected{% endif %}>Add link to 9 keywords</option>
+                                                    <option value="10" {% if project.link_keyword_density == 10 %}selected{% endif %}>Add link to 10 keywords</option>
                                                 </select>
                                                 
                                             </div>
-                                            <hr md-3> 
                                             
-                                            <div class="form-check form-switch">
-                                                <input type="checkbox" class="form-check-input" id="link_keyword_to_product" {% if project.link_keyword_to_product %}checked{% endif %}>
-                                                <label class="form-check-label" for="link_keyword_to_product">Link Keyword to Product</label>
-                                            </div>
 
                                             <!-- Other SEO fields go here -->
                                         </div>
@@ -562,19 +574,19 @@
             </div>
             <div class="d-flex justify-content-between m-3">
                 <div>
-                    <button id="stopButton" type="button" class="btn btn-danger ps-5 pe-5 pb-3 pt-3">Cancel the process</button>
+                    <button id="stopButton" type="button" class="btn btn-danger ps-5 pe-5 pb-3 pt-3" onclick="cancelProcess()" disabled>Process not running</button>
                     <button id="calculateButton" class="btn btn-secondary ps-5 pe-5 pb-3 pt-3">Calculate</button>
                 </div>
 
                 <div class="mb-3 form-check form-switch">
-                    <input type="checkbox" class="form-check-input" id="test_mode2" {% if project.test_mode %}checked{% endif %} onchange="toggleTestMode()">
-                    <label class="form-check-label" for="test_mode">Test Mode is Active!</label>
+                    <input type="checkbox" class="form-check-input" id="test_mode2" {% if project.test_mode or project.test_mode is none %}checked{% endif %} onchange="toggleTestMode()">
+                    <label class="form-check-label" for="test_mode2">Test Mode is Active!</label>
                     <br>
                     <small class="text-muted">If disabled it will update the products at the store</small>
                 </div>
                 
                 
-                <input type="submit" id="generateButton" value="Generate and Save" class="btn btn-primary ps-5 pe-5 pb-3 pt-3" data-project-id="{{ project.id }}">
+                <button type="button" id="generateButton" onclick="startProcess()" value="Generate and Save" class="btn btn-primary ps-5 pe-5 pb-3 pt-3" data-project-id="{{ project.id }}">Generate and Save</button>
 
 
                 
@@ -583,30 +595,49 @@
         </div>
     </div>
     <script>
+        function cancelProcess() {
+            // this function will disable the button
+            var $stopButton = $("#stopButton");
+            $stopButton.prop("disabled", true);
+            $stopButton.text("Canceling...");
+        }
+        function startProcess() {
+            var $generateButton = $("#generateButton");
+            $generateButton.prop("disabled", true);
+            $generateButton.text("Generating...");
+            $generateButton.css("background-color", "#e64445");
+
+            handleFormSubmit();
+        }
+
         $(document).ready(function() {
             var $generateButton = $("#generateButton");
+            var $stopButton = $("#stopButton");  // Define stop button
             var project_id = $generateButton.data("project-id");
+
             var intervalId = setInterval(function() {
                 $.get("/get_status", {project_id: project_id}, function(data) {
                     if (data['in_progress'] == 1) {
                         $generateButton.prop("disabled", true);
-                        $generateButton.val("Generating...");
+                        $generateButton.text("Generating...");
                         $generateButton.css("background-color", "#e64445");
+
                         $stopButton.prop("disabled", false);
-                        $stopButton.val("Cancel the process");
+                        $stopButton.text("Cancel the process");
                         $stopButton.css("background-color", "#e64445");
-                        // possibly change the button text and color here as well
                     } else {
                         $generateButton.prop("disabled", false);
-                        $generateButton.val("Generate and Save");
+                        $generateButton.text("Generate and Save");
                         $generateButton.css("background-color", "");
+
                         $stopButton.prop("disabled", true);
-                        $stopButton.val("Cancel the process");
+                        $stopButton.text("Process not running"); // or any other text
                         $stopButton.css("background-color", "");
                     }
                 });
-            }, 1000);  // every 5 seconds
+            }, 1000);
         });
+
     </script>
     
     
@@ -707,139 +738,129 @@
         }
     </script>
     <script>
+        function handleFormSubmit() {
+            // Collect settings data from the form
+            var data = {
+                "app_settings": {
+                    "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
+                    "openai_key": $('#openai_key').val(),
+                    "model": $('#model').val(),
+                    "temperature": parseInt($('#temperature').val()) || 0,
+                    "url": $('#url').val(),
+                    "website_name": $('#website_name').val(),
+                    "use_seo_package": $('#use_seo_package').is(':checked'),
+                    "currency": $('#currency').val(),
+                    "length": parseInt($('#length').val()) || 0,
+                    "test_mode": $('#test_mode').is(':checked'),
+                    "print_prompt": $('#print_prompt').is(':checked'),
+                    "only_active": $('#only_active').is(':checked'),
+                    "skip_products_with_description": parseInt($('#skip_products_with_description').val()) || 0,
+                    "specific_product": $('#specific_product').val(),
+                    "only_category": $('#only_category').val(),
+                    "only_category_name": $('#only_category_name').val(),
+                    "only_vendor": $('#only_vendor').val(),
+                    "only_vendor_name": $('#only_vendor_name').val(),
+                    "language": $('#language').val(),
+                    "niche": $('#niche').val(),
+                    "free_delivery_over": parseInt($('#free_delivery_over').val()) || 99999999,
+                    "mention_free_delivery_price": $('#mention_free_delivery_price').is(':checked'),
+                    "enable_product_description": $('#enable_product_description').is(':checked'),
+                    "enable_product_short_description": $('#enable_product_short_description').is(':checked'),
+                    "enable_generate_meta_description": $('#enable_generate_meta_description').is(':checked'),
+                },
+                "short_description_settings": {
+                    "short_purpose": $('#short_purpose').val(),
+                    "short_length": parseInt($('#short_length').val(), 0),
+                    "short_temperature": parseFloat($('#short_temperature').val()) || 0,
+                    "short_language": $('#short_language').val(),
+                    "short_product_name": $('#short_product_name').is(':checked'),
+                    "short_short_description": $('#short_short_description').is(':checked'),
+                    "short_vendor_name": $('#short_vendor_name').is(':checked'),
+                    "short_category_name": $('#short_category_name').is(':checked'),
+                    "short_property_option_values": $('#short_property_option_values').is(':checked'),
+                    "short_use_website_name": $('#short_use_website_name').is(':checked'),
+                    "short_additional_instructions": $('#short_additional_instructions').val(),
+
+                },
+                "seo_settings": {
+                    "link_to_product": $('#link_to_product').is(':checked'),
+                    "link_to_category": $('#link_to_category').is(':checked'),
+                    "link_to_vendor": $('#link_to_vendor').is(':checked'),
+                    "link_to_more_from_same_vendor_and_category": $('#link_to_more_from_same_vendor_and_category').is(':checked'),
+                    "use_keywords": parseInt($('#use_keywords').val()) || 0,
+                    "keywords_density": parseInt($('#keywords_density').val()) || 0,
+                    "use_free_keywords": $('#use_free_keywords').val(),
+                    "link_keyword_to_product": $('#link_keyword_to_product').is(':checked'),
+                    "link_keyword_density": parseInt($('#link_keyword_density').val()) || 0
+                },
+                "prompt_settings": {
+                    "purpouse": $('#purpouse').val(),
+                    "product_name": $('#product_name').is(':checked'),
+                    "price_from": $('#price_from').is(':checked'),
+                    "show_price": $('#show_price').is(':checked'),
+                    "short_description": $('#short_description').is(':checked'),
+                    "description": $('#description').is(':checked'),
+                    "vendor_name": $('#vendor_name').is(':checked'),
+                    "category_name": $('#category_name').is(':checked'),
+                    "property_option_values": $('#property_option_values').is(':checked'),
+                    "use_website_name": $('#use_website_name').is(':checked'),
+                    "additional_instructions": $('#additional_instructions').val(),
+                    "system_instructions": $('#system_instructions').val(),
+                }
+                // Get other SEO and prompt settings data...
+            };
+            // change the color and text of the Generate button, and disable it
+
+
+            let url = window.location.href;
+            let projectId = url.substring(url.lastIndexOf('/') + 1);
+            // Include the project_id in the data object
+            data["project_id"] = projectId;
+            // POST the data as JSON to the new endpoint to save settings
+            fetch('/save_settings/' + projectId, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("HTTP error " + response.status);
+                    
+                }
+
+                // Once settings are saved successfully, call the /set endpoint
+                return fetch('/set', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("HTTP error " + response.status);
+                }
+
+                // restore the original color, text, and enable the Generate button after getting a successful response
+
+                //$('#stopButton').prop('disabled', true).text('Cancel the process');
+            })
+            .catch(function(error) {
+
+            });
+        }
         $(document).ready(function() {
             $('#settingsForm').submit(function(e) {
                 e.preventDefault();
 
-                // Collect settings data from the form
-                var data = {
-                    "app_settings": {
-                        "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
-                        "openai_key": $('#openai_key').val(),
-                        "model": $('#model').val(),
-                        "temperature": parseInt($('#temperature').val()) || 0,
-                        "url": $('#url').val(),
-                        "website_name": $('#website_name').val(),
-                        "use_seo_package": $('#use_seo_package').is(':checked'),
-                        "currency": $('#currency').val(),
-                        "length": parseInt($('#length').val()) || 0,
-                        "test_mode": $('#test_mode').is(':checked'),
-                        "print_prompt": $('#print_prompt').is(':checked'),
-                        "only_active": $('#only_active').is(':checked'),
-                        "skip_products_with_description": parseInt($('#skip_products_with_description').val()) || 0,
-                        "specific_product": $('#specific_product').val(),
-                        "only_category": $('#only_category').val(),
-                        "only_category_name": $('#only_category_name').val(),
-                        "only_vendor": $('#only_vendor').val(),
-                        "only_vendor_name": $('#only_vendor_name').val(),
-                        "language": $('#language').val(),
-                        "niche": $('#niche').val(),
-                        "free_delivery_over": parseInt($('#free_delivery_over').val()) || 99999999,
-                        "mention_free_delivery_price": $('#mention_free_delivery_price').is(':checked'),
-                        "enable_product_description": $('#enable_product_description').is(':checked'),
-                        "enable_product_short_description": $('#enable_product_short_description').is(':checked'),
-                        "enable_generate_meta_description": $('#enable_generate_meta_description').is(':checked'),
-                    },
-                    "short_description_settings": {
-                        "short_purpose": $('#short_purpose').val(),
-                        "short_length": parseInt($('#short_length').val(), 0),
-                        "short_temperature": parseFloat($('#short_temperature').val()) || 0,
-                        "short_language": $('#short_language').val(),
-                        "short_product_name": $('#short_product_name').is(':checked'),
-                        "short_short_description": $('#short_short_description').is(':checked'),
-                        "short_vendor_name": $('#short_vendor_name').is(':checked'),
-                        "short_category_name": $('#short_category_name').is(':checked'),
-                        "short_property_option_values": $('#short_property_option_values').is(':checked'),
-                        "short_use_website_name": $('#short_use_website_name').is(':checked'),
-                        "short_additional_instructions": $('#short_additional_instructions').val(),
-
-                    },
-                    "seo_settings": {
-                        "link_to_product": $('#link_to_product').is(':checked'),
-                        "link_to_category": $('#link_to_category').is(':checked'),
-                        "link_to_vendor": $('#link_to_vendor').is(':checked'),
-                        "link_to_more_from_same_vendor_and_category": $('#link_to_more_from_same_vendor_and_category').is(':checked'),
-                        "use_keywords": parseInt($('#use_keywords').val()) || 0,
-                        "keywords_density": parseInt($('#keywords_density').val()) || 0,
-                        "use_free_keywords": $('#use_free_keywords').val(),
-                        "link_keyword_to_product": $('#link_keyword_to_product').is(':checked'),
-                        "link_keyword_density": parseInt($('#link_keyword_density').val()) || 0
-                    },
-                    "prompt_settings": {
-                        "purpouse": $('#purpouse').val(),
-                        "product_name": $('#product_name').is(':checked'),
-                        "price_from": $('#price_from').is(':checked'),
-                        "show_price": $('#show_price').is(':checked'),
-                        "short_description": $('#short_description').is(':checked'),
-                        "description": $('#description').is(':checked'),
-                        "vendor_name": $('#vendor_name').is(':checked'),
-                        "category_name": $('#category_name').is(':checked'),
-                        "property_option_values": $('#property_option_values').is(':checked'),
-                        "use_website_name": $('#use_website_name').is(':checked'),
-                        "additional_instructions": $('#additional_instructions').val(),
-                    }
-                    // Get other SEO and prompt settings data...
-                };
-                // change the color and text of the Generate button, and disable it
-
-
-                let url = window.location.href;
-                let projectId = url.substring(url.lastIndexOf('/') + 1);
-                // Include the project_id in the data object
-                data["project_id"] = projectId;
-                // POST the data as JSON to the new endpoint to save settings
-                fetch('/save_settings/' + projectId, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
-                    })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error("HTTP error " + response.status);
-                        
-                    }
-
-                    // Once settings are saved successfully, call the /set endpoint
-                    return fetch('/set', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
-                    });
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error("HTTP error " + response.status);
-                    }
-
-                    // restore the original color, text, and enable the Generate button after getting a successful response
-
-                    //$('#stopButton').prop('disabled', true).text('Cancel the process');
-                })
-                .catch(function(error) {
-
-                });
+                startProcess();
             });
         });
+
     </script>
     <script>
         $(document).ready(function() {
         // Select the "Generate" button
-        var $generateButton = $('#generateButton');
-
-        // Disable the "Stop" button initially
-        $('#stopButton').prop('disabled', true); 
-
-        $('#settingsForm').on('submit', function(e) {
-            e.preventDefault(); // Prevent form submission to avoid page reload
-
-            // Enable the "Stop" button when process starts
-            $('#stopButton').prop('disabled', false).text('Cancel the process'); 
-
-        });
-
         $('#stopButton').click(function() {
-            $(this).prop('disabled', true).text('Canceling...'); // Disable the button and change the text when clicked
-
             $.ajax({
                 url: '/stop_process',
                 type: 'POST',
@@ -914,6 +935,7 @@
                 "property_option_values": $('#property_option_values').is(':checked'),
                 "use_website_name": $('#use_website_name').is(':checked'),
                 "additional_instructions": $('#additional_instructions').val(),
+                "system_instructions": $('#system_instructions').val(),
             }
             // Get other SEO and prompt settings data...
         };

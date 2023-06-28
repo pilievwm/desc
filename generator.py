@@ -162,8 +162,9 @@ def updateProduct(product_id, description, short_description, meta_description, 
 def get_keywords(seo_settings, app_settings, product, project_id):
     if seo_settings['use_keywords'] == 0:
         return ''
-    prompt = f'You are skilled SEO expert. Research ONLY the top {seo_settings["use_keywords"]} long-tail keywords, from the title of this product in {app_settings["language"]} language. Use the category \"{product["category_name"]}\" and the brand \"{product["vendor_name"]}\" only if you are absolutly sure that the information is critical for the top long-tail keyword. Please note that I want only the words without any other explanations from your side! Return the keywords by comma separated.\n'
-
+    #prompt = f'You are skilled SEO expert. Research ONLY the top {seo_settings["use_keywords"]} long-tail keywords, from the title of this product in {app_settings["language"]} language. Use the category \"{product["category_name"]}\" and the brand \"{product["vendor_name"]}\" only if you are absolutly sure that the information is critical for the top long-tail keyword. Please note that I want only the words without any other explanations from your side! Return the keywords by comma separated without quotes!\n'
+    prompt = f'Your task is splited in 3 steps.\nFollow the steps from top to bottom:\n\nStep 1:\nCraft a list of the top {seo_settings["use_keywords"]} keywords using category \"{product["category_name"]}\", and brand \"{product["vendor_name"]}\" in {app_settings["language"]} language for SEO purpouses.\n\nStep 2:\nUsing the generated keywords, create a list of {seo_settings["use_keywords"]} long-tail keywords by using only the most relevant to the (\"{app_settings["niche"]}\"):  product characteristics: (\"{product["property_option_values"]}\").\n\nStep 3:\nCombine the top keywords and the long-tail keywords into a comma-separated values.\n\n'
+    system_prompt = 'Return only step 3 without nameing it. Onlythe keywords without any other explanations or references from your side devided by comma! Do not mention the steps or anything else except the keywords! Only the keywords!'
     max_retries = 15
 
     for attempt in range(max_retries):
@@ -171,8 +172,9 @@ def get_keywords(seo_settings, app_settings, product, project_id):
             response = openai.ChatCompletion.create(
                 model=app_settings['model'],
                 messages=[
-                    {"role": "user", "content": prompt}
-                                                    ],
+                    {"role": "user", "content": prompt},
+                    {"role": "system", "content": system_prompt}
+                    ],
                 temperature=app_settings['temperature'],
             )
             # If the request was successful, break out of the loop
@@ -283,61 +285,52 @@ def generate_short_description(product_dict, prompt_settings, description, app_s
 def create_prompt(product, prompt_settings, app_settings, seo_settings, project_id):
     # Initialize an empty string for the prompt
     prompt = ''
+    category_name_link = ''
+    vendor_name_link = ''
+    keyword_product_link = ''
+    link_keyword_to_product = ''
+    keywords_quoted = ''
+
     # Check if SEO package is in use
     if app_settings['use_seo_package']:
         # Create an anchor tag with product name and URL
         if seo_settings['link_to_product']:
-            product_name_link = f'<a href="{app_settings["url"]}/product/{product["url_handle"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"{product["product_name"]}\"">put the product title here</a>'
+            product_name_link = f'<a href="{app_settings["url"]}/product/{product["url_handle"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"put generated keyword here\"">generated keyword here</a>\n'
         if seo_settings['link_to_category']:
-            category_name_link = f'<a href="{app_settings["url"]}/category/{product["category_slug"]}" target="_blank" alt="rewrite in {app_settings["language"]} language, the alt title: \"{product["category_name"]}\"">put the category name here</a>'
+            category_name_link = f'<a href="{app_settings["url"]}/category/{product["category_slug"]}" target="_blank" alt="rewrite in {app_settings["language"]} language, the alt title: \"put generated keyword here\"">generated keyword here</a>\n'
         if seo_settings['link_to_vendor']:
-            vendor_name_link = f'<a href="{app_settings["url"]}/vendor/{product["vendor_slug"]}" target="_blank" alt="{product["vendor_name"]}">put the vendor name here</a>'
+            vendor_name_link = f'<a href="{app_settings["url"]}/vendor/{product["vendor_slug"]}" target="_blank" alt="put generated keyword here">put generated keyword here</a>\n'
         if seo_settings['link_to_more_from_same_vendor_and_category']:
-            more_from_same_vendor_and_category_link = f'<a href="{app_settings["url"]}/category/{product["category_slug"]}?vendors={product["vendor_slug"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"{product["vendor_name"]} - {product["category_name"]}\"">give the user the option to see more from \"{product["vendor_name"]}\"</a>'
+            more_from_same_vendor_and_category_link = f'<a href="{app_settings["url"]}/category/{product["category_slug"]}?vendors={product["vendor_slug"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"{product["vendor_name"]} - {product["category_name"]}\""> give the user the option to see more from \"{product["vendor_name"]}\"</a>\n'
+        ####### GENERATE KEYWORDS #######
         if seo_settings['use_keywords'] != 0:
-            keywords = get_keywords(seo_settings, app_settings, product, project_id)
+            generated_keywords = get_keywords(seo_settings, app_settings, product, project_id)
+            keywords = generated_keywords.replace('"', '')
         if seo_settings['link_keyword_to_product']:
-            keyword_product_link = f'<a href="{app_settings["url"]}/product/{product["url_handle"]}" target="_blank" alt="rewrite in {app_settings["language"]} language the alt title: \"{product["product_name"]}\""> put the keywords here </a>'
+            #link_keyword_to_product = f"In addition, you must make at least {seo_settings['link_keyword_density']} links at the text to that keywords that are most relevant to the generated text. You can use the following links: {keyword_product_link} {category_name_link} {vendor_name_link}\n"
+            #link_keyword_to_product = f"Important! Minimum {seo_settings['link_keyword_density']} of the keywords must be linked on a random basis. You can use the following links more than {seo_settings['link_keyword_density']} times: {keyword_product_link} {category_name_link} {vendor_name_link}.\n"
+            link_keyword_to_product = f"Link not less than {seo_settings['link_keyword_density']} keywords! You must use the links: {keyword_product_link} {category_name_link} {vendor_name_link}"
+            
+        #################################
 
     # Main instructions
-    prompt += f'Strictly follow the instructions step by step! \nMain instructions: \n'
-    prompt += f"You are {prompt_settings['purpouse']} copywriter at {app_settings['website_name']} that operates in {app_settings['niche']} niche. This product description is published online at \"{app_settings['website_name']}\" (do not invite the user to go to the store, he is already there!). You are writing and adapting the entire text in {app_settings['language']} language.\n"
-    prompt += f"The product description must be in no more than {app_settings['length']} words and its purpouse is for \"{prompt_settings['purpouse']}\".\n\n"
 
-    # SEO and Keywords instructions
-    if app_settings['use_seo_package']:
-        prompt += f"This part is highly important! Stryctly follow the SEO and keywords instructions: \n"
-        if seo_settings['use_keywords'] != 0:
-            prompt += f"All keywords should be used in the most natural way accros the generated description. For example at the beginning of the text, at the middle and at the end. The description should contains the following keywords: {keywords}. Use each combination not less than {seo_settings['keywords_density']} times. \n"
-        if seo_settings['use_free_keywords'] != '':
-            free_keywords = f'and you must combine it with the best relevant keywords from here: \"{seo_settings["use_free_keywords"]}\"'
-            prompt += f'You are skilled SEO expert. Research ONLY the top {seo_settings["use_keywords"]} long-tail keywords, from the title of this product {free_keywords} in {app_settings["language"]} language. Use the category \"{product["category_name"]}\" and the brand \"{product["vendor_name"]}\" only if you are absolutly sure that the information is critical for the top long-tail keyword. Please note that I want only the words without any other explanations from your side! Return the keywords by comma separated. \n'
-        if seo_settings['link_keyword_to_product']:
-            prompt += f"In addition, you must make at least {seo_settings['link_keyword_density']} links to that keywords with this link: {keyword_product_link}.\n"
-        if seo_settings['link_to_product']:
-            prompt += f"add this link to one of the product titles: {product_name_link}, "
-        if seo_settings['link_to_category']:
-            prompt += f"add this link to one of the category names: {category_name_link}, "
-        if seo_settings['link_to_vendor']:
-            prompt += f"Add this link to one of the vendor names: {vendor_name_link}, "
-        if seo_settings['link_to_more_from_same_vendor_and_category']:
-            prompt += f"Add a link to find more products from category: {product['category_name']} and brand: {product['vendor_name']}: {more_from_same_vendor_and_category_link}. \n"
-
+    prompt += f'Your task is splited in few steps.\nStep 1:\n\n'
+    prompt += f"As a {prompt_settings['purpouse']} copywriter at {app_settings['website_name']} that operates in {app_settings['niche']} niche craft a product description. This product description will be published online at \"{app_settings['website_name']}\" - \"{app_settings['url']}\" (do not invite the user to go to the store, he is already there!). You have to write and craft the entire text in {app_settings['language']} language."
+    prompt += f"The lenght of the content must be {app_settings['length']} words.\n\n"
     # Product information instructions
-    prompt += f"\nProduct information instructions: \n"
-    if app_settings['website_name']:
-        prompt += f"1. The store is \"{app_settings['website_name']}\";\n"
+    prompt += f"To write an exceptional product description use the following content: \n"
     if prompt_settings['product_name']:
-        prompt += f"2. Rewrite the title in SEO way. Remove irrelevants from \"{product['product_name']}\"; \n"
+        prompt += f"Product name: rewrite the title in an SEO way if needed. Remove irrelevance from \"{product['product_name']}\"; \n"
     # Check if 'price_from' is in prompt_settings and is not None
     if prompt_settings.get('price_from'):
         # Check if 'show_price' is in prompt_settings and is True
         if prompt_settings.get('show_price'):
             # Check if 'price_from' and 'currency' exist in the product and app_settings respectively
             if product.get('price_from') and app_settings.get('currency'):
-                prompt += f"3. The product price is {product['price_from']} {app_settings['currency']} ;\n"
+                prompt += f"Product price: the product price is {product['price_from']} {app_settings['currency']} ;\n"
             else:
-                prompt += "3. Do not mention the product price but if you decide you can use some words about the benefit of the price;\n"
+                prompt += "Do not mention the product price but if you decide you can use some words about the benefit of the price!"
                 
         # Check if 'price_from' is in the product and 'free_delivery_over' is in app_settings and both are not None
         if product.get('price_from') and app_settings.get('free_delivery_over') and \
@@ -346,26 +339,50 @@ def create_prompt(product, prompt_settings, app_settings, seo_settings, project_
             if app_settings.get('mention_free_delivery_price'):
                 # Check if 'currency' is in app_settings and is not None
                 if app_settings.get('currency'):
-                    prompt += f"4. This product might be eligible for free delivery for orders over {app_settings['free_delivery_over']} {app_settings['currency']} but advice the customer to check it when they are purchasing;\n"
+                    prompt += f"The product that you are writing description might be eligible for free delivery for orders over {app_settings['free_delivery_over']} {app_settings['currency']} but advice the customer to check it when they are purchasing;\n"
             else:
-                prompt += "4. This product might be eligible for free delivery but advice the customer to check it when they are purchasing.\n"
+                prompt += "The product that you are writing description might be eligible for free delivery but advice the customer to check it when they are purchasing.\n"
 
     # Product specifications instructions
     if prompt_settings['short_description']:
-        prompt += f"4. Use this short description for your product description: \"{product['short_description']}\";\n"
+        prompt += f"Product short description is: \"{product['short_description']}\";\n"
     if prompt_settings['description']:
-        prompt += f"5. Use the existing description for your product description: \"{product['description']}\"\n"
+        prompt += f"Product description is: \"{product['description']}\"\n"
     if prompt_settings['vendor_name']:
-        prompt += f"6. The brand of the product is: \"{product['vendor_name']}\";\n"
+        prompt += f"The brand of the product is: \"{product['vendor_name']}\";\n"
     if prompt_settings['category_name']:
-        prompt += f"7. Category is: \"{product['category_name']}\" (you must use it only for reference for the description but not directly);\n"
+        prompt += f"Category is: \"{product['category_name']}\" (you must use it only for reference for the description or keywords suggestion);\n"
     if prompt_settings['property_option_values']:
-        prompt += f"8. Use product characteristics: \"{product['property_option_values']}\". You must write feature/benefit dichotomy description. For example, stating that a dishwasher applies high heat and water pressure (or worse, providing numbers with no context) doesn't tell the reader anything. These are features, and they resonate with the reader much better when you pair them with their benefit. In this case, the benefit might be that buying this dishwasher will liberate them from having to remove food residue and stains by hand;\n"
+        prompt += f"This are product properties/features. One of the most important parts of the text: \"{product['property_option_values']}\". Based on them you must write a feature/benefit dichotomy description. For example, stating that a dishwasher applies high heat and water pressure (or worse, providing numbers with no context) doesn't tell the reader anything. These are features, and they resonate with the reader much better when you pair them with their benefit. In this case, the benefit might be that buying this dishwasher will liberate them from having to remove food residue and stains by hand.\n"
     if app_settings['use_seo_package']:
-        prompt += f"9. Avoid superfluous words. Avoid Generic Writing, instead, employ Unique features and benefits, The 'What' of what your product can do for them, Explanation of the specific ways the product will improve their lives. Don't use the passive voice.\n"
+        prompt += f"Avoid superfluous words. Avoid Generic Writing, instead, employ Unique features and benefits, The 'What' of what your product can do for them, Explanation of the specific ways the product will improve their lives. Don't use the passive voice.\n"
     if prompt_settings["additional_instructions"]:
-        prompt += f"9. Additional important instructions: {prompt_settings['additional_instructions']};\n"
+        prompt += f"Additional important instructions: {prompt_settings['additional_instructions']};\n\n"
+    # SEO and Keywords instructions
+    if app_settings['use_seo_package']:
+        prompt += f"\nStep 2\nImplementing SEO technics like keywords and the style of the content.\nThis part is highly important!\nThe output must meet Google\'s Search Quality Evaluator Guidelines in E-E-A-T and YMYL standards!\n"
+        if seo_settings['use_free_keywords'] != '':
+            keyword_split = seo_settings['use_free_keywords'].split(',')
+            keywords_quoted = ', '.join(f'{keyword}' for keyword in keyword_split)
+        if seo_settings['use_keywords'] != 0:
+            #use_keywords = f"All keywords should be used in the most natural way accros the generated description (not only at the bottom of the text). For example at the beginning of the text, at the middle and at the end. The description should contains the following keywords: {keywords}. Use each combination not less than {seo_settings['keywords_density']} times.\n"
+            #use_keywords = f"Your product description must contain {seo_settings['keywords_density']} times each of this ({keywords}, {keywords_quoted}) keywords {link_keyword_to_product}. Spread them naturally across the generated description (not only at the bottom of the text). For example at the beginning of the text, at the middle, and at the end. "
+            use_keywords = f"Use the following keywords into your description {seo_settings['keywords_density']} times each. The keywords are: {keywords}, {keywords_quoted}. \n{link_keyword_to_product}\n. The keywords must be used across the generated description. For example at the beginning of the text, at the middle, and at the end of the text. "
+            prompt += f'{use_keywords}'
+        elif seo_settings['use_free_keywords'] != '':
+            use_keywords = f"Use the following keywords into your description {seo_settings['keywords_density']} times each. The keywords are: {keywords_quoted}. \n{link_keyword_to_product}\n. The keywords must be used across the generated description. For example at the beginning of the text, at the middle, and at the end of the text. "
+            prompt += f'{use_keywords}'
+        
+        if seo_settings['link_to_product']:
+            prompt += f"In addition add this link to one of the product titles: {product_name_link} "
+        if seo_settings['link_to_category']:
+            prompt += f"{category_name_link} "
+        if seo_settings['link_to_vendor']:
+            prompt += f"{vendor_name_link} "
+        if seo_settings['link_to_more_from_same_vendor_and_category'] and more_from_same_vendor_and_category_link:
+            prompt += f"In addition add a link to find more products from category: {product['category_name']} and brand: {product['vendor_name']}: {more_from_same_vendor_and_category_link}\n"
     
+    prompt += f"\nFinal Step.\nOutput the final text wihtout any reference from your instructions. Do not name the steps nor anything that is not related to the text\n"
     return prompt
 
 def create_prompt_short_description(product, prompt_settings, app_settings, seo_settings, short_description_settings, project_id):
@@ -435,7 +452,7 @@ def create_prompt_short_description(product, prompt_settings, app_settings, seo_
 def get_all_products(db, Statistics, Processed, Project, app_settings, seo_settings, prompt_settings, short_description_settings, project_id):
     
     project = Project.query.get(project_id)
-    project = db.session.query(Project).get(project_id)
+    project = db.session.get(Project, project_id)
     if project:
         project.in_progress = True
         db.session.commit()
@@ -487,7 +504,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
         if stop_process.get(project_id, False):
             socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
             stop(project_id)  # Stop processexit
-            project = db.session.query(Project).get(project_id)
+            project = db.session.get(Project, project_id)
             if project:
                 project.in_progress = False
                 db.session.commit()
@@ -531,7 +548,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                 if app_settings['print_prompt']:
                     socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
                     socketio.emit('log', {'data': f'\nProcess completed...'},room=str(project_id), namespace='/')
-                    project = db.session.query(Project).get(project_id)
+                    project = db.session.get(Project, project_id)
                     if project:
                         project.in_progress = False
                         db.session.commit()
@@ -576,7 +593,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
 
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
-                        project = db.session.query(Project).get(project_id)
+                        project = db.session.get(Project, project_id)
                         if project:
                             project.in_progress = False
                             db.session.commit()
@@ -600,7 +617,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
 
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
-                        project = db.session.query(Project).get(project_id)
+                        project = db.session.get(Project, project_id)
                         if project:
                             project.in_progress = False
                             db.session.commit()
@@ -628,7 +645,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                 prompt = create_prompt_short_description(product_dict, prompt_settings, app_settings, seo_settings, short_description_settings, project_id)
                 if app_settings['print_prompt']:
                     socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
-                    project = db.session.query(Project).get(project_id)
+                    project = db.session.get(Project, project_id)
                     if project:
                         project.in_progress = False
                         db.session.commit()
@@ -647,7 +664,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
                         socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                        project = db.session.query(Project).get(project_id)
+                        project = db.session.get(Project, project_id)
                         if project:
                             project.in_progress = False
                             db.session.commit()
@@ -670,7 +687,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
                         socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                        project = db.session.query(Project).get(project_id)
+                        project = db.session.get(Project, project_id)
                         if project:
                             project.in_progress = False
                             db.session.commit()
@@ -695,7 +712,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
 
                 response = generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description, project_id)
                 if app_settings["print_prompt"] is True:
-                    project = db.session.query(Project).get(project_id)
+                    project = db.session.get(Project, project_id)
                     if project:
                         project.in_progress = False
                         db.session.commit()
@@ -709,7 +726,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
                         socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                        project = db.session.query(Project).get(project_id)
+                        project = db.session.get(Project, project_id)
                         if project:
                             project.in_progress = False
                             db.session.commit()
@@ -732,7 +749,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                     if stop_process.get(project_id, False):
                         stop(project_id)  # Stop process
                         socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                        project = db.session.query(Project).get(project_id)
+                        project = db.session.get(Project, project_id)
                         if project:
                             project.in_progress = False
                             db.session.commit()
@@ -747,7 +764,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
 
                     # Update the product description
                     updateProduct(product_id, description, short_description, meta_description, app_settings, project_id)
-                    query.processed(db, Processed, project_id, product_id, app_settings, task_id, response)
+                    query.processed(db, Processed, project_id, product_id, app_settings, task_id, response, page_url)
                     socketio.emit('log', {'data': f"Product meta description for: {product_dict['product_name']} with ID: {product_dict['product_id']} is updated..."},room=str(project_id), namespace='/')
 
 
@@ -781,7 +798,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
             if stop_process.get(project_id, False):
                 stop(project_id)  # Stop process
                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                project = db.session.query(Project).get(project_id)
+                project = db.session.get(Project, project_id)
                 if project:
                     project.in_progress = False
                     db.session.commit()
@@ -824,19 +841,26 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
 
                     ############## CHECK IF PRODUCT DESCRIPTION IS ENABLED ##############
                     if enable_product_description:
-
+                        
                         # Create a prompt for each product
                         prompt = create_prompt(product_dict, prompt_settings, app_settings, seo_settings, project_id)
                         if app_settings['print_prompt']:
                             socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
                             socketio.emit('log', {'data': f'\nProcess completed...'},room=str(project_id), namespace='/')
-                            project = db.session.query(Project).get(project_id)
+                            project = db.session.get(Project, project_id)
                             if project:
                                 project.in_progress = False
                                 db.session.commit()
                             return(prompt)
                         socketio.emit('log', {'data': f"Processing product with name: {product_dict['product_name']} and ID: {product_dict['product_id']}"},room=str(project_id), namespace='/')
                         
+                        system_prompt = prompt_settings['system_instructions']
+
+                        if system_prompt == "":
+                            system_prompt = {"role": "system", "content": "You must add html tags to the text and you must bold important parts and words! Do not use H1 tags, use H2 and H3 tags instead! The links at the text should be accross the entire text not only at the end!"}
+                        else:
+                            system_prompt = {"role": "system", "content": system_prompt}
+
                         # Get the response from OpenAI
                         max_retries = 15
 
@@ -846,7 +870,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                                     model=app_settings['model'],
                                     messages=[
                                         {"role": "user", "content": prompt},
-                                        {"role": "system", "content": "You must add html tags to the text and you must bold important parts and words! Do not use H1 tags, use H2 and H3 tags instead! The links at the text should be accross the entire text not only at the end!"},
+                                        system_prompt,
                                     ],
                                     temperature=app_settings['temperature'],
                                 )
@@ -875,7 +899,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                                project = db.session.query(Project).get(project_id)
+                                project = db.session.get(Project, project_id)
                                 if project:
                                     project.in_progress = False
                                     db.session.commit()
@@ -897,7 +921,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                                project = db.session.query(Project).get(project_id)
+                                project = db.session.get(Project, project_id)
                                 if project:
                                     project.in_progress = False
                                     db.session.commit()
@@ -925,7 +949,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                         if app_settings['print_prompt']:
                             socketio.emit('log', {'data': f"\nPrompt message: \n######################################\n{prompt}######################################\n"},room=str(project_id), namespace='/')
                             socketio.emit('log', {'data': f'\nProcess completed...'},room=str(project_id), namespace='/')
-                            project = db.session.query(Project).get(project_id)
+                            project = db.session.get(Project, project_id)
                             if project:
                                 project.in_progress = False
                                 db.session.commit()
@@ -940,7 +964,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                                project = db.session.query(Project).get(project_id)
+                                project = db.session.get(Project, project_id)
                                 if project:
                                     project.in_progress = False
                                     db.session.commit()
@@ -962,7 +986,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                                project = db.session.query(Project).get(project_id)
+                                project = db.session.get(Project, project_id)
                                 if project:
                                     project.in_progress = False
                                     db.session.commit()
@@ -987,7 +1011,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
 
                         response = generate_meta_description(product_dict, prompt_settings, app_settings, seo_settings, description, project_id)
                         if app_settings["print_prompt"] is True:
-                            project = db.session.query(Project).get(project_id)
+                            project = db.session.get(Project, project_id)
                             if project:
                                 project.in_progress = False
                                 db.session.commit()
@@ -1001,7 +1025,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                                project = db.session.query(Project).get(project_id)
+                                project = db.session.get(Project, project_id)
                                 if project:
                                     project.in_progress = False
                                     db.session.commit()
@@ -1024,7 +1048,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                             if stop_process.get(project_id, False):
                                 stop(project_id)  # Stop process
                                 socketio.emit('log', {'data': 'Process stopped by user.'},room=str(project_id), namespace='/')
-                                project = db.session.query(Project).get(project_id)
+                                project = db.session.get(Project, project_id)
                                 if project:
                                     project.in_progress = False
                                     db.session.commit()
@@ -1046,7 +1070,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
                     if test_mode > 0:
                         socketio.emit('log', {'data': f'\nTest mode completed...'},room=str(project_id), namespace='/')
                         limit_reached = True
-                        project = db.session.query(Project).get(project_id)
+                        project = db.session.get(Project, project_id)
                         if project:
                             project.in_progress = False
                             db.session.commit()
@@ -1054,7 +1078,7 @@ def get_all_products(db, Statistics, Processed, Project, app_settings, seo_setti
             ###### NEXT PAGE ######
             url = data['links']['next'] if 'next' in data['links'] else None
     socketio.emit('log', {'data': f'\nCompleted...'},room=str(project_id), namespace='/')
-    project = db.session.query(Project).get(project_id)
+    project = db.session.get(Project, project_id)
     if project:
         project.in_progress = False
         db.session.commit()
