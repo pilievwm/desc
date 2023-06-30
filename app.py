@@ -211,7 +211,7 @@ def index():
                 func.sum(Statistics.completion_tokens).label('total_completion_tokens'),
                 func.sum(Statistics.total_tokens).label('total_tokens'),
                 func.sum(Statistics.cost).label('total_cost'),
-                func.sum((Statistics.test_mode.isnot(None)).cast(Integer)).label('total_test_mode')
+                func.sum((Statistics.test_mode == 1).cast(Integer)).label('total_test_mode')
             ).join(Project, Project.id == Statistics.project_id
             ).join(User, User.id == Project.user_id
             ).filter(Project.id == project_id[0],
@@ -316,15 +316,15 @@ def calculate():
         return jsonify({'status': 'success'}), 200
     except KeyError as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'}, room=str(project_id), namespace='/')
+        socketio.emit('log', {'data': f'Error: Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'}, room=str(project_id), namespace='/')
         return jsonify({'error': f"The key '{str(e)}' was not found in the data. Please check your data source."}), 500
     except MissingSchema as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{str(e)}'}, room=str(project_id), namespace='/')
+        socketio.emit('log', {'data': f'Error: {str(e)}'}, room=str(project_id), namespace='/')
         return jsonify({'error': 'First you need to add some credentials like: X-CloudCart-ApiKey and OpenAI Key!'}), 500
     except Exception as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{str(e)}'}, room=str(project_id), namespace='/')
+        socketio.emit('log', {'data': f'Error: {str(e)}'}, room=str(project_id), namespace='/')
         return jsonify({'error': str(e)}), 500
 
 
@@ -354,16 +354,16 @@ def set_settings():
         return jsonify({'status': 'success'}), 200
     except KeyError as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{str(e)} Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'},room=str(project_id), namespace='/')
+        socketio.emit('log', {'data': f'{str(e)} {tb} Error: Please check your X-CloudCart-ApiKey. It is missing or it is wrong!'},room=str(project_id), namespace='/')
         project = db.session.query(Project).get(project_id)
         if project:
             project.in_progress = False
             db.session.commit()
-        return jsonify({'error': f"The key '{str(e)}' was not found in the data. Please check your data source."}), 500
+        return jsonify({'error': f"The key '{str(e)}' {tb} was not found in the data. Please check your data source."}), 500
 
     except MissingSchema as e:
         tb = traceback.format_exc()  # get the traceback
-        socketio.emit('log', {'data': f'{str(e)}\n{tb}'},room=str(project_id), namespace='/')
+        socketio.emit('log', {'data': f'Error: {str(e)}\n{tb}'},room=str(project_id), namespace='/')
         project = db.session.query(Project).get(project_id)
         if project:
             project.in_progress = False
@@ -375,7 +375,7 @@ def set_settings():
         if project:
             project.in_progress = False
             db.session.commit()
-        socketio.emit('log', {'data': f'{str(e)}\n'},room=str(project_id), namespace='/')
+        socketio.emit('log', {'data': f'Error: {str(e)}\n'},room=str(project_id), namespace='/')
         return jsonify({'error': str(e)}), 500
     
 
@@ -421,7 +421,7 @@ def delete_user(user_id):
     return jsonify({"message": "User deleted successfully."}), 200
 
 
-@app.route('/projects/new', methods=['GET', 'POST'])
+@app.route('/projects/new', methods=['POST'])
 @login_required
 def new_project():
     if request.method == 'POST':
@@ -582,6 +582,10 @@ def save_settings(project_id):
         "short_additional_instructions": "short_additional_instructions",
         "additional_instructions": "additional_instructions",
         "system_instructions": "system_instructions",
+        "use_feature_desc": "use_feature_desc",
+        "use_interesting_fact": "use_interesting_fact",
+        "use_hidden_benefit": "use_hidden_benefit",
+        "e_e_a_t": "e_e_a_t",
     }
 
     # Update project settings

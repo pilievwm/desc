@@ -13,19 +13,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/select2-bootstrap-theme/0.1.0-beta.10/select2-bootstrap.min.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
 
-    <script type="text/javascript" charset="utf-8">
-        var socket = io.connect('https://' + document.domain + ':' + location.port + '/');
-        socket.on('connect', function() {
-            socket.emit('join', { 'project_id': '{{ project.id }}', 'username': '{{ current_user.name }}' });
-        });
-        socket.on('log', function(msg) {
-            document.getElementById('output').textContent += msg.data + '\n';
     
-            // Scroll to the bottom
-            var outputDiv = document.getElementById("output");
-            outputDiv.scrollTop = outputDiv.scrollHeight;
-        });
-    </script>
     
     <style>
     .bootstrap-tagsinput {
@@ -355,7 +343,7 @@
                                         <hr md-3>   
                                         <div class="mb-3">
                                             <label for="length" class="form-label">Lenght of the description (in words)</label>
-                                            <input type="range" class="form-range" value="{{ project.length | default(10, true) }}" min="10" max="700" step="10" id="length" oninput="updateLengthValue(this.value)">
+                                            <input type="range" class="form-range" value="{{ project.length | default(10, true) }}" min="10" max="1200" step="10" id="length" oninput="updateLengthValue(this.value)">
                                             <span id="lengthValue">{{ project.length | default(10, true) }}</span>
                                         </div>
 
@@ -431,9 +419,28 @@
                                         </div>
                                         <hr md-3>
                                         <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="use_feature_desc" {% if project.use_feature_desc %}checked{% endif %}>
+                                            <label class="form-check-label" for="use_feature_desc">Use <mark>feature/benefit</mark> dichotomy description. Works good if Property option values are enabled</label><br />
+                                            <small class="text-muted">Example: Buying a dishwasher will liberate you from having to remove food residue and stains by hand</small>
+                                        </div>
+                                        <hr md-3>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="use_interesting_fact" {% if project.use_interesting_fact %}checked{% endif %}>
+                                            <label class="form-check-label" for="use_interesting_fact">Use <mark>interesting facts</mark> </label><br />
+                                            <small class="text-muted">Will generate an interesting fact of the product that will give additional value to the customer</small>
+                                        </div>
+                                        <hr md-3>
+                                        <div class="form-check form-switch">
+                                            <input class="form-check-input" type="checkbox" id="use_hidden_benefit" {% if project.use_hidden_benefit %}checked{% endif %}>
+                                            <label class="form-check-label" for="use_hidden_benefit">Use <mark>hidden benefit</mark> </label><br />
+                                            <small class="text-muted">Will generate a hidden bennefit of the product that will give additional value to the customer</small>
+                                        </div>
+                                        <hr md-3>
+                                        <div class="form-check form-switch">
                                             <input class="form-check-input" type="checkbox" id="use_website_name" {% if project.use_website_name %}checked{% endif %}>
                                             <label class="form-check-label" for="use_website_name">Use Website Name</label>
                                         </div>
+                                        
                                         <hr md-3>
                                         <div class="md-3">
                                             <label class="form-label" for="additional_instructions">Additional instructions</label>
@@ -470,9 +477,13 @@
                                         </div>
                                         
                                         <div id="seo_fields" style="display:none;">
-                                            
                                             <hr md-3> 
-
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="e_e_a_t" name="e_e_a_t" {% if project.e_e_a_t %}checked{% endif %}>
+                                                <label class="form-check-label" for="e_e_a_t">Enable E-E-A-T writing style</label><br />
+                                                <small class="text-muted">Read more <a href="https://developers.google.com/search/blog/2022/12/google-raters-guidelines-e-e-a-t" target="_blank">here</a> about the Google Guidlines</small>
+                                            </div>
+                                            <hr md-3> 
                                             <div class="form-check form-switch">
                                                 <input type="checkbox" class="form-check-input" id="link_to_product" name="link_to_product" {% if project.link_to_product %}checked{% endif %}>
                                                 <label class="form-check-label" for="link_to_product">Link to the Product name</label>
@@ -609,7 +620,7 @@
 
             handleFormSubmit();
         }
-
+/*
         $(document).ready(function() {
             var $generateButton = $("#generateButton");
             var $stopButton = $("#stopButton");  // Define stop button
@@ -637,8 +648,71 @@
                 });
             }, 1000);
         });
-
+*/
+        
     </script>
+    <script type="text/javascript" charset="utf-8">
+        $(document).ready(function() {
+            var socket = io.connect('https://' + document.domain + ':' + location.port + '/');
+            var $generateButton = $("#generateButton");
+            var $stopButton = $("#stopButton");
+        
+            // Request to get in_progress status
+            $.ajax({
+                url: '/get_status',
+                type: 'GET',
+                data: { 'project_id': '{{ project.id }}' }, // Pass project_id if necessary
+                success: function(response) {
+                    if(response.in_progress) {
+                        // Disable the button and change the text and color
+                        $generateButton.prop("disabled", true);
+                        $generateButton.text("Generating...");
+                        $generateButton.css("background-color", "#e64445");
+
+                        $stopButton.prop("disabled", false);
+                        $stopButton.text("Cancel the process");
+                        $stopButton.css("background-color", "#e64445");
+                        console.log("Process is running");
+                    }
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        
+            socket.on('connect', function() {
+                socket.emit('join', { 'project_id': '{{ project.id }}', 'username': '{{ current_user.name }}' });
+            });
+        
+            socket.on('log', function(msg) {
+                document.getElementById('output').textContent += msg.data + '\n';
+        
+                // Scroll to the bottom
+                var outputDiv = document.getElementById("output");
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+        
+                if (msg.data.includes('Started')) {
+                    $generateButton.prop("disabled", true);
+                    $generateButton.text("Generating...");
+                    $generateButton.css("background-color", "#e64445");
+        
+                    $stopButton.prop("disabled", false);
+                    $stopButton.text("Cancel the process");
+                    $stopButton.css("background-color", "#e64445");
+                } else if (msg.data.toLowerCase().includes('completed') || msg.data.toLowerCase().includes('error')  || msg.data.toLowerCase().includes('stopped') || msg.data.toLowerCase().includes('ended')) {
+                    $generateButton.prop("disabled", false);
+                    $generateButton.text("Generate and Save");
+                    $generateButton.css("background-color", "");
+        
+                    $stopButton.prop("disabled", true);
+                    $stopButton.text("Process not running"); // or any other text
+                    $stopButton.css("background-color", "");
+                }
+            })
+        });
+    </script>
+    
+    
     
     
         
@@ -791,7 +865,8 @@
                     "keywords_density": parseInt($('#keywords_density').val()) || 0,
                     "use_free_keywords": $('#use_free_keywords').val(),
                     "link_keyword_to_product": $('#link_keyword_to_product').is(':checked'),
-                    "link_keyword_density": parseInt($('#link_keyword_density').val()) || 0
+                    "link_keyword_density": parseInt($('#link_keyword_density').val()) || 0,
+                    "e_e_a_t": $('#e_e_a_t').is(':checked'),
                 },
                 "prompt_settings": {
                     "purpouse": $('#purpouse').val(),
@@ -804,8 +879,11 @@
                     "category_name": $('#category_name').is(':checked'),
                     "property_option_values": $('#property_option_values').is(':checked'),
                     "use_website_name": $('#use_website_name').is(':checked'),
+                    "use_feature_desc": $('#use_feature_desc').is(':checked'),
                     "additional_instructions": $('#additional_instructions').val(),
                     "system_instructions": $('#system_instructions').val(),
+                    "use_interesting_fact": $('#use_interesting_fact').is(':checked'),
+                    "use_hidden_benefit": $('#use_hidden_benefit').is(':checked'),
                 }
                 // Get other SEO and prompt settings data...
             };
