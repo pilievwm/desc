@@ -166,6 +166,7 @@
                         <th scope="col">Keywords</th>
                         <th scope="col">Description</th>
                         <th scope="col">FAQ</th>
+                        <th scope="col">Products</th>
                         <th scope="col">Status</th>
 
                         <!-- Optionally add a column for actions if needed -->
@@ -224,7 +225,10 @@
                                 </button>
                                 {% endif %}
                             </td>
-                            
+                            <td>
+                                <a href="/ai/{{ project_id }}?only_category={{ category.category_id }}&only_category_name={{ category.category_name }}" class="btn btn-outline-primary btn-sm" data-toggle="tooltip" data-placement="top" title="From here you can generate descriptions for all products under {{ category.category_name }} category">Products description</a>
+                                
+                            </td>
                             <td>
                                 {% set settings = category_settings.get(category.category_id) %}
                                 {% if category.category_update == 1 and settings.category_ready == 0 %}
@@ -253,7 +257,7 @@
 
                                 <!-- Link to /cat/project_id/category_id -->
                                 <a href="/cat/{{ project_id }}/{{ category.category_id }}" class="btn btn-outline-secondary btn-sm">Edit</a>
-
+                                
                                 <button class="btn btn-outline-danger btn-sm" data-id="{{ category.id }}">Delete</button>
                             </td>
                         </tr>
@@ -596,6 +600,10 @@ $(document).ready(function() {
         searchInput.value = searchInput.value.toLowerCase();
         return true;  // continue with the form submission
     }
+
+    $(function () {
+        $('[data-toggle="tooltip"]').tooltip()
+    })
     </script>
 
 </body>
