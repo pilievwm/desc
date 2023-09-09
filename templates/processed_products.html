@@ -1,0 +1,562 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+
+    <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.15.4/css/all.css" integrity="sha384-rqn26AG5Pj86AF4SO72RK5fyefcQ/x32DNQfChxWvbXIyXFePlEktwD18fEz+kQU" crossorigin="anonymous">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+
+    <!-- Option 1: Bootstrap Bundle with Popper -->
+
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+ 
+
+    <!-- Bootstrap Tags Input CSS and JS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.min.js"></script>
+    
+    <style>
+        .gradient-custom {
+            /* fallback for old browsers */
+            background: #667eea;
+        
+            /* Chrome 10-25, Safari 5.1-6 */
+            background: -webkit-linear-gradient(to right, rgba(102,126,234,1), rgba(118,75,162,1));
+        
+            /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+            background: linear-gradient(to right, rgba(102,126,234,1), rgba(118,75,162,1))
+        }
+        .small, small {
+            font-size: .78em;
+            color: #000;
+        }
+        .mark {
+            background-color: #f6ebff;
+            padding: .2em .4em;
+            border-radius: .25rem;
+
+        }
+        a {
+            color: #ff334b;
+            text-decoration: none;
+            background-color: transparent;
+        }
+
+        .fw-light {
+            font-weight: 300;
+            color: rgb(118, 112, 123);
+        }
+        .display-6 {
+            font-size: 1rem;
+            font-weight: 300;
+            line-height: 1.2;
+        }
+        .table-striped tbody tr:nth-of-type(odd) {
+            background-color: #fefcff;
+        }
+        .nav-link, .nav-link:hover {
+            color: #fff;
+            text-decoration: none;
+        }
+
+        .wide-modal {
+            max-width: 70%;
+        }
+
+        .bootstrap-tagsinput .tag {
+            background-color: #007BFF;  /* Blue background */
+            color: white;  /* White text */
+            border-radius: 4px;  /* Rounded edges */
+            padding: 2px 5px;  /* Some padding */
+            margin-bottom: 4px;  /* Adds space at the bottom of each tag */
+            margin-top: 4px;  /* Adds space at the top of each tag */
+        }
+        .bootstrap-tagsinput {
+            line-height: normal !important; /* Adjusts the line height */
+        }
+
+        .bootstrap-tagsinput .badge {
+            margin: 3px 2px !important; /* Adds margin to the tags */
+        }
+
+        
+
+    </style>
+
+    <title>Projects</title>
+</head>
+<body>
+
+    <div class="d-flex align-items-center text-white px-3 h5 mb-4 justify-content-between gradient-custom" style="height: 55px">
+        <div>CloudCart AI Content Generator
+            <a href="/" class="btn btn-outline-light btn-sm">Back to Project</a>
+
+        </div>
+        <div class="d-flex align-items-center">
+            {% if current_user.is_authenticated %}
+            <ul class="nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">{{ current_user.name }}</a>
+                    <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="/">Projects</a></li>
+                    <li><a class="dropdown-item" href="/users">Users</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a href="/logout" class="dropdown-item">Logout</a></li>
+                    </ul>
+                </li>
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="d-flex align-items-center justify-content-between">
+            <h2 class="my-4">Products ({{ total_products }})
+            </h2>
+            <a href="/ai/{{ project_id }}?specific_product=&only_category=" class="btn btn-primary">Create Product Description</a>
+        </div>
+        <div class="table-responsive">
+
+            <div class="row">
+                <div class="col-4 form-outline">
+                    <form method="get" action="{{ url_for('processed_products', project_id=project_id) }}" onsubmit="return toLowerCaseSearch();">
+                        <div class="form-outline">
+                            <input type="search" id="form1" name="search" class="form-control form-control-sm" placeholder="Type query" aria-label="Search" value="{{ search }}" autofocus />
+                        </div>
+                        <input type="submit" style="display: none;">
+                    </form>                                      
+                </div>
+            </div>
+            
+            <table  id="productsTable" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th scope="col" style="width: 40%; max-width: 40%;">Product</th>
+                        <th scope="col">Description</th>
+                        <th scope="col">Short description</th>
+                        <th scope="col">Meta description</th>
+                        <th scope="col">Status</th>
+
+                        <!-- Optionally add a column for actions if needed -->
+                        <th scope="col" class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products|sort(attribute='id', reverse=true) %}
+                        <tr class="align-middle">
+                            <td style="width: 40%; max-width: 40%;">
+                                <a href="/ai/{{ project_id }}?specific_product={{ product.record_id }}">{{ product.title }}</a> <small class="fw-light align-middle">(ID: <strong>{{ product.record_id }}</strong>)</small>
+                                <!-- Here we will show a link to the actual category from the product.category_url variable. The link will be actually an Icon that represent an external link-->
+                                <a href="{{ product.url_handle }}" target="_blank" class="ms-2">
+                                    <i class="far fa-chevron-square-up"></i>
+                                </a>
+                                <small class="fw-light">
+                                    
+                                <p class="mb-0">Created: {% if product.created_at %}
+                                    {{ product.created_at.strftime('%d.%m.%Y %H:%M') }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                                </p>
+                                    
+                                    
+                                    Updated: {% if product.updated_at %}
+                                    {{ product.updated_at.strftime('%d.%m.%Y %H:%M') }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                                </p>
+                                </small>
+
+                            </td>
+                            <td>
+                                {% if product.description %}
+                                <!-- Button to trigger the modal -->
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#descriptionModal{{ product.record_id }}">
+                                    View
+                                </button>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if product.short_description %}
+                                <!-- Button to trigger the modal -->
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#short_descriptionModal{{ product.record_id }}">
+                                    View
+                                </button>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                {% if product.meta_description %}
+                                <!-- Button to trigger the modal -->
+                                <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#meta_descriptionModal{{ product.record_id }}">
+                                    View
+                                </button>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if product.published %}
+                                    <span class="badge bg-success">Published
+                                        <p class="fw-light mb-0 text-white">on {{ product.published_at.strftime('%d.%m.%Y %H:%M') }}</p>
+                                    </span> 
+                                    <small class="fw-light">
+                                        <p class="mb-0">Total tokens: {{ "{:,}".format(product.token_count if product.token_count is not none else 0).replace(',', ' ') }}</p>
+                                        <p class="mb-0">Calculated Cost: ${{ "{:,.2f}".format((product.token_count or 0) * 0.000045).replace(',', ' ') }}</p>
+                                    </small>
+                                {% else %}
+                                    <span class="badge bg-danger">Not published yet</span>
+                                {% endif %}
+                            </td>
+                            <!-- Optionally add action buttons (edit, delete, etc.) for each category -->
+                            <td class="text-end">
+
+                                <!-- Link to /cat/project_id/category_id -->
+                                <a href="/ai/{{ project_id }}?specific_product={{ product.record_id }}" class="btn btn-outline-secondary btn-sm">Edit</a>
+
+                                <button class="btn btn-outline-danger btn-sm" data-id="{{ product.id }}">Delete</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <nav aria-label="Page navigation">
+            <ul class="pagination">
+              
+              <!-- Previous Page Link -->
+              {% if current_page > 1 %}
+                  <li class="page-item">
+                      <a class="page-link" href="{{ url_for('processed_products', project_id=project_id, page=current_page-1) }}" aria-label="Previous">
+                          <span aria-hidden="true">&laquo;</span>
+                      </a>
+                  </li>
+              {% else %}
+                  <li class="page-item disabled">
+                      <span class="page-link">&laquo;</span>
+                  </li>
+              {% endif %}
+          
+              <!-- Page Numbers -->
+              {% for page_num in range(1, total_pages + 1) %}
+                  {% if page_num == current_page %}
+                      <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
+                  {% else %}
+                      <li class="page-item"><a class="page-link" href="{{ url_for('processed_products', project_id=project_id, page=page_num) }}">{{ page_num }}</a></li>
+                  {% endif %}
+              {% endfor %}
+          
+              <!-- Next Page Link -->
+              {% if current_page < total_pages %}
+                  <li class="page-item">
+                      <a class="page-link" href="{{ url_for('processed_products', project_id=project_id, page=current_page+1) }}" aria-label="Next">
+                          <span aria-hidden="true">&raquo;</span>
+                      </a>
+                  </li>
+              {% else %}
+                  <li class="page-item disabled">
+                      <span class="page-link">&raquo;</span>
+                  </li>
+              {% endif %}
+          
+            </ul>
+          </nav>
+          
+        
+    </div>
+
+    <!-- BATCH PROCESSING MODAL -->
+    <div class="modal fade" id="batchProcessingModal" tabindex="-1" aria-labelledby="batchProcessingModalLabel" aria-hidden="true">
+        <div class="modal-dialog wide-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="batchProcessingModalLabel">Batch Processing</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <!-- Added the id 'batchProcessingForm' to the form -->
+                <form id="batchProcessingForm" action="/batch_processing/{{ project_id }}" method="post">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="openai-key" class="form-label">OpenAI Key</label>
+                            <input type="text" class="form-control" id="openai-key" name="openai_key" required>
+                        </div>
+                        <div class="mb-3">
+                            <div class="card-body p-0">
+                                <pre id="output" class="border p-2 m-3" style="height: 60vh; overflow: auto; background-color: black; color: rgb(244, 244, 244); white-space: pre-wrap;"></pre>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="killButton" class="btn btn-danger" type="button">Kill Process</button>
+                        <button type="submit" id="submitButton" class="btn btn-primary">Start Batch Processing</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+  
+    {% for product in products %}
+    {% if product.description %}
+    <div class="modal fade" id="descriptionModal{{ product.record_id }}" tabindex="-1" aria-labelledby="descriptionModalLabel{{ product.record_id }}" aria-hidden="true">
+        <div class="modal-dialog wide-modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="descriptionModalLabel{{ product.record_id }}">Description</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    {{ product.description|safe }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% if product.short_description %}
+        <div class="modal fade" id="short_descriptionModal{{ product.record_id }}" tabindex="-1" aria-labelledby="short_descriptionModalLabel{{ product.record_id }}" aria-hidden="true">
+            <div class="modal-dialog wide-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="short_descriptionModalLabel{{ product.record_id }}">Short description</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        {{ product.short_description|safe }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+          
+    {% endif %}
+    {% if product.meta_description %}
+        <div class="modal fade" id="meta_descriptionModal{{ product.record_id }}" tabindex="-1" aria-labelledby="meta_descriptionModalLabel{{ product.record_id }}" aria-hidden="true">
+            <div class="modal-dialog wide-modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="meta_descriptionModalLabel{{ product.record_id }}">Meta description</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        {{ product.meta_description|safe }}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+          
+    {% endif %}
+    
+    {% endfor %}
+  
+    <script>
+        $(document).ready(function() {
+            $("#aggregateCategoriesBtn").click(function() {
+                const projectId = "{{ project_id }}";
+                
+                // Disable the button and clear any previous messages
+                $(this).prop("disabled", true);
+                $(this).text("Processing...");
+                $("#aggregateCategoriesMessage").addClass("d-none");
+
+                $.post(`/project/${projectId}/aggregate`, function(response) {
+                    if (response.status === 'Categories processed successfully') {
+                        $("#alertHeading").text('Success!');
+                        $("#alertMessage").text('Categories aggregated successfully!');
+                        $("#aggregateCategoriesMessage").removeClass("d-none").addClass("alert-success");
+
+                        // Refresh the entire page
+                        window.location.reload();
+
+                    } else {
+                        $("#alertHeading").text('Error!');
+                        $("#alertMessage").text('There was an error aggregating the categories.');
+                        $("#aggregateCategoriesMessage").removeClass("d-none").addClass("alert-danger");
+                        // Re-enable the button if there's an error
+                        $("#aggregateCategoriesBtn").prop("disabled", false);
+                    }
+                });
+            });
+        });
+
+
+    </script>        
+
+    <script type="text/javascript">
+        $(document).ready(function() {
+            var socket = io.connect('https://' + document.domain + ':' + location.port + '/');
+            var $submitButton = $("#batchProcessingForm button[type='submit']");  // Cache the button reference
+
+            socket.on('connect', function() {
+                socket.emit('join', { 'project_id': '{{ project_id }}', 'username': '{{ current_user.name }}' });
+            });
+            
+            socket.on('log', function(msg) {
+                console.log("Received log:", msg.data);
+                document.getElementById('output').textContent += msg.data + '\n';
+                var outputDiv = document.getElementById("output");
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+
+                // Check for messages that indicate the process is completed and enable the button
+                if (msg.data.toLowerCase().includes('completed')) {
+                    $submitButton.prop("disabled", false);
+                }
+            });
+
+            $("#batchProcessingForm").submit(function(event) {
+                event.preventDefault();
+                
+                // Disable the button
+                $submitButton.prop("disabled", true);
+                $submitButton.text("Processing...");
+
+                var formData = {
+                    "openai_key": $("#openai-key").val()
+                };
+
+                $.ajax({
+                    url: "/batch_processing/{{ project_id }}",
+                    type: "POST",
+                    data: formData,
+                    success: function(response) {
+                        console.log(response);
+                        document.getElementById('output').textContent += "Batch processing response: " + response.message + '\n';
+                        
+                        // Enable the button
+                        $submitButton.prop("disabled", false);
+                        $submitButton.text("Start Batch Processing");
+                    },
+                    error: function(xhr, status, error) {
+                        console.log("Error: " + error);
+                        console.log("Status: " + status);
+                        console.dir(xhr);
+                        document.getElementById('output').textContent += "Error in batch processing: " + error + '\n';
+                        
+                        // Enable the button
+                        $submitButton.prop("disabled", false);
+                        $submitButton.text("Start Batch Processing");
+                    }
+                });
+            });
+        });
+
+    </script>
+
+<script>
+$(document).ready(function() {
+    var $submitButtonMain = $("#submitButtonMain"); // Reference to the button on the main page
+    var $modalButton = $("#submitButton"); // Reference to the button inside the modal
+    var project_id = "{{ project_id }}";  // Retrieve the actual project_id
+    var type = "category";
+
+    // Function to fetch the batch status and update the button text and state
+    function updateButtonState(button, isMain) {
+        $.ajax({
+            url: "/get_batch_status",
+            type: "GET",
+            data: { "project_id": project_id, "type": "category" },
+            success: function(response) {
+                console.log("Batch status:", response);
+                if (response.batch) {  // If batch status is true
+                    button.text("Processing...");
+                    if (isMain) {
+                        $modalButton.prop("disabled", true); // Disable the modal button
+                    } else {
+                        button.prop("disabled", true); // Disable the main button
+                    }
+                } else {  // If batch status is false
+                    button.text("Start Batch Processing");
+                    button.prop("disabled", false); // Enable the button
+                    $modalButton.prop("disabled", false); // Enable the modal button
+                }
+            },
+            error: function(error) {
+                console.log("Error fetching batch status:", error);
+            }
+        });
+    }
+
+    // Fetch the batch status on page load for the main button
+    updateButtonState($submitButtonMain, true);
+
+    // Fetch the batch status and set the modal button's state when the modal is about to be shown
+    $('#batchProcessingModal').on('show.bs.modal', function (e) {
+        updateButtonState($modalButton, false);
+    });
+});
+</script>
+<script>
+$(document).ready(function() {
+    var $killButton = $("#killButton"); // Reference to the kill button
+    var project_id = "{{ project_id }}";  // Retrieve the actual project_id
+
+    $('#killButton').click(function(event) {
+    event.preventDefault(); // Prevent the default behavior of the button
+
+    // Explicitly disable the submitButton
+    $('#submitButton').prop("disabled", true);
+
+    $.ajax({
+        url: "/kill_batch_process",
+        type: "POST",
+        data: {
+            "project_id": "{{ project_id }}",
+            "type": "category"
+        },
+        success: function(response) {
+            // Log the successful response
+            console.log("Process killed:", response.message);
+        },
+        error: function(error) {
+            console.log("Error killing the process:", error);
+        }
+    });
+});
+
+});
+</script>
+<script>
+    function submitForm() {
+        const dropdown = document.getElementById('statusDropdown');
+        if (dropdown.value === "") {
+            // Modify the form's action to remove the status parameter for "All statuses"
+            document.getElementById('statusFilterForm').action = "{{ url_for('processed_categories', project_id=project_id) }}";
+        }
+        document.getElementById('statusFilterForm').submit();
+    }
+</script>
+<script>
+    $(document).ready(function() {
+        // Listen for input changes on the search field
+        $("#form1").on('input', function() {
+            if (!$(this).val()) {
+                // If the input is cleared, submit the form
+                $(this).closest("form").submit();
+            }
+        });
+    });
+
+    function toLowerCaseSearch() {
+        var searchInput = document.getElementById('form1');
+        searchInput.value = searchInput.value.toLowerCase();
+        return true;  // continue with the form submission
+    }
+</script>
+
+</body>
+</html>

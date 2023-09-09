@@ -36,10 +36,21 @@ def create_processed(db):
         project_id = db.Column(db.Integer, db.ForeignKey('project.id', ondelete='CASCADE'), nullable=False)
         task_id = db.Column(db.Integer, nullable=True)
         model = db.Column(db.String(128), nullable=True)
+        title = db.Column(db.Text, nullable=True)
+        meta_title = db.Column(db.Text, nullable=True)
+        meta_description = db.Column(db.Text, nullable=True)
+        description = db.Column(db.Text, nullable=True)
+        short_description = db.Column(db.Text, nullable=True)
         record_id = db.Column(db.Integer, nullable=False)
-        datetime = db.Column(db.DateTime, default=datetime.utcnow)
+        created_at = db.Column(db.DateTime, default=datetime.utcnow)
+        updated_at = db.Column(db.DateTime, default=datetime.utcnow)
         output = db.Column(db.Text, nullable=True)
         page_url = db.Column(db.Text, nullable=True)  # Add this line to store the page URL
+        url_handle = db.Column(db.Text, nullable=True)  # Add this line to store the URL handle
+        published = db.Column(db.Boolean, default=False)
+        published_at = db.Column(db.DateTime, default=datetime.utcnow)
+        token_count = db.Column(db.Integer, nullable=True)
+
     return Processed
 
 
@@ -117,3 +128,111 @@ def create_project_class(db):
         processed_records = db.relationship('Processed', backref='project', lazy=True, cascade="all, delete-orphan")
 
     return Project
+
+def create_category_class(db):
+    class CategorySetting(db.Model):
+        __tablename__ = 'category_settings'
+
+        id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+        project_id = db.Column(db.Integer, db.ForeignKey('project.id', ondelete='CASCADE'), nullable=False)
+        user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+        x_cloudcart_apikey = db.Column(db.String(128), nullable=False)
+        url = db.Column(db.String(128), nullable=False)
+        model = db.Column(db.String(128), nullable=False)
+        seo_model = db.Column(db.String(128), nullable=True)
+        website_name = db.Column(db.String(128), nullable=True)
+        length = db.Column(db.Integer)
+        temperature = db.Column(db.Integer)
+        test_mode = db.Column(db.Boolean)
+        print_prompt = db.Column(db.Boolean)
+        print_scraped_data = db.Column(db.Boolean, default=False)
+        language = db.Column(db.String(128), nullable=False)
+        category_id = db.Column(db.Integer, nullable=True)
+        category_name = db.Column(db.String(128), nullable=True)
+        max_property_values = db.Column(db.Integer, nullable=True)
+        max_keywords = db.Column(db.Integer, nullable=True)
+        max_order_pages = db.Column(db.Integer, nullable=True)
+        description_length = db.Column(db.Integer, nullable=True)
+        include_sales_info = db.Column(db.Boolean, default=True)
+        only_active_products = db.Column(db.Boolean, default=False)
+        include_category_info = db.Column(db.Boolean, default=True)
+        enable_category_description = db.Column(db.Boolean)
+        enable_generate_meta_description = db.Column(db.Boolean)
+        print_scraped_data = db.Column(db.Boolean, default=False)
+        enable_faq_generation = db.Column(db.Boolean, default=False)
+        add_faq = db.Column(db.Integer, default=0)
+        add_best_selling_products = db.Column(db.Integer, default=0)
+        add_top_brands = db.Column(db.Integer, default=0)
+        number_images = db.Column(db.Integer, default=0)
+        top_brands_links = db.Column(db.Boolean, default=False)
+        generic_keywords = db.Column(db.Boolean, default=False)
+        generate_keywords = db.Column(db.Boolean, default=False)
+        e_e_a_t = db.Column(db.Boolean, default=False)
+        wiki_faq_links = db.Column(db.Boolean, default=False)
+        use_seo_package = db.Column(db.Boolean)
+        additional_instructions = db.Column(db.Text, nullable=True)
+        max_props = db.Column(db.Integer, nullable=True)
+        in_progress = db.Column(db.Boolean, nullable=True)
+        include_properties = db.Column(db.Boolean, default=False)
+        include_category_name_at_headings = db.Column(db.Boolean, default=False)
+        wiki_links = db.Column(db.Boolean, default=False)
+        cat_links = db.Column(db.Boolean, default=False)
+        include_intro = db.Column(db.Boolean, default=False)
+        interesting_fact = db.Column(db.Boolean, default=False)
+        category_ready = db.Column(db.Boolean, default=False)
+        enable_additional_instructions = db.Column(db.Boolean, default=False)
+        ### FAQ ###
+        max_props_faq = db.Column(db.Integer, nullable=True)
+        max_property_values_faq = db.Column(db.Integer, nullable=True)
+        include_properties_faq = db.Column(db.Boolean, default=False)
+        include_faq_info = db.Column(db.Boolean, default=False)
+        add_top_brands_faq = db.Column(db.Integer, default=0)
+        add_best_selling_products_faq = db.Column(db.Integer, default=0)
+        include_category_info_faq = db.Column(db.Boolean, default=False)
+        additional_instructions_faq = db.Column(db.Text, nullable=True)
+        faq_length = db.Column(db.Integer, nullable=True)
+        use_seo_faq_package = db.Column(db.Boolean, default=False)
+        faq_top_brands_links = db.Column(db.Boolean, default=False)
+        faq_category_links = db.Column(db.Boolean, default=False)
+        faq_use_schema = db.Column(db.Boolean, default=False)
+        faq_include_category_name_at_headings = db.Column(db.Boolean, default=False)
+        faq_brand_link_authority = db.Column(db.Boolean, default=False)
+        faq_wiki_link_authority = db.Column(db.Boolean, default=False)
+
+
+        #############################
+        use_main_keywords = db.Column(db.Text, default=False)
+        processed_records = db.relationship('ProcessedCategory', backref='processed_category', lazy=True, cascade="all, delete-orphan")
+    return CategorySetting
+
+
+def create_processed_category_class(db):
+    class ProcessedCategory(db.Model):
+        __tablename__ = 'processed_category'
+        id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+        project_id = db.Column(db.Integer, db.ForeignKey('category_settings.id', ondelete='CASCADE', name='fk_processed_category_project_id'), nullable=False)
+        category_id = db.Column(db.Integer, nullable=True)
+        category_name = db.Column(db.String(128), nullable=True)
+        category_structure = db.Column(db.Text, nullable=True)
+        category_url = db.Column(db.Text, nullable=True)
+        category_prompt = db.Column(db.Text, nullable=True)
+        category_description = db.Column(db.Text, nullable=True)
+        category_faqs = db.Column(db.Text, nullable=True)
+        category_keywords = db.Column(db.Text, nullable=True)
+        category_custom_keywords = db.Column(db.Text, nullable=True)
+        category_test_mode = db.Column(db.Boolean)
+        category_update = db.Column(db.Boolean, default=False)
+        token_count = db.Column(db.Integer, nullable=True)
+        category_created_at = db.Column(db.DateTime, default=datetime.utcnow)
+        category_updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+    return ProcessedCategory
+
+def create_category_batch_class(db):
+    class BatchCategory(db.Model):
+        __tablename__ = 'batch_category'
+        id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+        project_id = db.Column(db.Integer, db.ForeignKey('category_settings.id', ondelete='CASCADE', name='fk_processed_category_project_id'), nullable=False)
+        type = db.Column(db.String(128), nullable=True)
+        kill_process = db.Column(db.Boolean, default=False)
+        batch = db.Column(db.Boolean, default=False)
+    return BatchCategory

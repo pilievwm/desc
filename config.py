@@ -1,0 +1,2 @@
+class Config:
+    socketio = None

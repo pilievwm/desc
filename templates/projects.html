@@ -33,9 +33,10 @@
 
         }
         a {
-            color: #3e0b64;
+            color: #ff334b;
             text-decoration: none;
             background-color: transparent;
+            text-transform: uppercase;
         }
         .fw-light {
             font-weight: 300;
@@ -91,8 +92,6 @@
                 <thead>
                     <tr>
                         <th scope="col">Store</th>
-                        <th scope="col">GPT-3.5-turbo Statistics</th>
-                        <th scope="col">GPT-4 Statistics</th>
                         <th scope="col" class="text-end">Actions</th>
                     </tr>
                 </thead>
@@ -100,7 +99,7 @@
                     {% for project, user_name, stats in projects_statistics %}
                         <tr class="align-middle">
                             <td class="lh-sm">
-                                <strong><a href="/ai/{{ project.id }}" class="display-6">{{ project.domain }}</a></strong><br />
+                                <strong><a href="/project/{{ project.id }}">{{ project.domain }}</a></strong><br />
                                 <small class="fw-light">Owner:</small> <small>{{ user_name }}</small><br />
                                 <small class="fw-light">Project ID:</small> <small>{{ project.id }}</small><br />
                                 <small class="fw-light">Created at:</small> <small>
@@ -118,6 +117,7 @@
                                     {% endif %}
                                 </small>
                             </td>
+                            <!--
                             <td class="lh-sm">
                                 <small class="fw-light">Prompt tokens:</small> 
                                 <small class="mark">{{ stats['gpt-3.5-turbo'].total_prompt_tokens if 'gpt-3.5-turbo' in stats else '0' }}</small><br />
@@ -142,11 +142,23 @@
                                 <small class="fw-light">Cost:</small> 
                                 <small class="mark">${{ "{:.3f}".format(stats['gpt-4'].total_cost) if 'gpt-4' in stats else '0.00' }}</small>
                             </td>
+                            -->
                             <td class="text-end">
+                                <!--
                                 <a href="/ai/{{ project.id }}"
-                                    <button class="btn btn-outline-secondary btn-sm editProjectButton">Edit Project</button>
+                                    <button class="btn btn-outline-secondary btn-sm editProjectButton">Generate product description</button>
+                                </a>
+                                <a href="/cat/{{ project.id }}"
+                                    <button class="btn btn-outline-secondary btn-sm editCategoryButton">Generate category description</button>
                                 </a>
                                 <button class="btn btn-outline-danger btn-sm deleteProjectButton" data-id="{{ project.id }}">Delete Project</button>
+                                -->
+                                
+                                    <a href="/processed_categories/{{ project.id }}" class="btn btn-outline-primary btn-sm">View all categories</a>
+                                    <a href="/processed_products/{{ project.id }}" class="btn btn-outline-primary btn-sm">View all products</a>
+
+
+                                    <a href="/project/{{ project.id }}" class="btn btn-outline-primary btn-sm">View project</a>
                             </td>
                         </tr>
                     {% endfor %}

@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Category Settings Form</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2-bootstrap-theme/0.1.0-beta.10/select2-bootstrap.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
+
+    
+    
+    <style>
+    .bootstrap-tagsinput {
+        width: 100%;
+        padding: 6px 12px;
+        border-radius: .25rem;
+        margin: 3px;
+        line-height: 36px;
+    }
+
+    .bootstrap-tagsinput .tag {
+        color: #fff;
+        background-color: #e64445;
+        border: none;
+        padding: 5px;
+        margin: 2px;
+    }
+    .gradient-custom {
+            /* fallback for old browsers */
+            background: #667eea;
+        
+            /* Chrome 10-25, Safari 5.1-6 */
+            background: -webkit-linear-gradient(to right, rgba(102,126,234,1), rgba(118,75,162,1));
+        
+            /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+            background: linear-gradient(to right, rgba(102,126,234,1), rgba(118,75,162,1))
+        }
+        .nav-link, .nav-link:hover {
+            color: #fff;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="d-flex align-items-center text-white px-3 h5 mb-4 justify-content-between gradient-custom" style="height: 55px">
+        <div>Category Description for {{ category.category_name }}
+
+                <a href="/processed_categories/{{ category.project_id }}" class="btn btn-outline-light btn-sm">Back to Processed categories</a>
+
+        </div>
+        
+        <div class="d-flex align-items-center">
+            {% if current_user.is_authenticated %}
+            <ul class="nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">{{ current_user.name }}</a>
+                    <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="/">Projects</a></li>
+                    <li><a class="dropdown-item" href="/users">Users</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a href="/logout" class="dropdown-item">Logout</a></li>
+                    </ul>
+                </li>
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-4">
+                <form id="settingsForm" class="mb-1">
+                    <div class="accordion" id="settingsAccordion">
+                        <!-- General Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="generalSettingsHeading">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#generalSettings" aria-expanded="true" aria-controls="generalSettings">
+                                    General Settings
+                                </button>
+                            </h2>
+                            <div id="generalSettings" class="accordion-collapse collapse show bg-light" aria-labelledby="generalSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <!-- App Settings Inputs -->
+                                <div class="accordion-body">
+                                <fieldset>
+                                    <p class="text-black-50">Please provide the general configuration for the application.</p>
+                                
+                                    <div class="mb-3">
+                                        <label for="url" class="form-label">Store URL</label>
+                                        <input type="text" class="form-control" id="url" placeholder="URL" value="{{ category.url | default('', true) }}">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="X-CloudCart-ApiKey" class="form-label">X-CloudCart-ApiKey</label>
+                                        <input type="text" class="form-control" id="X-CloudCart-ApiKey" value="{{ category.x_cloudcart_apikey | default('', true) }}">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="openai_key" class="form-label">OpenAI Key</label>
+                                        <input type="text" class="form-control" id="openai_key" required>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="model" class="form-label">Model</label>
+                                        <select class="form-select" id="model" name="model">
+                                            <option value="gpt-3.5-turbo-16k" {% if category.model == "gpt-3.5-turbo-16k" or category.model is none %}selected{% endif %}>GPT-3.5-Turbo</option>
+                                            <option value="gpt-4" {% if category.model == "gpt-4" %}selected{% endif %}>GTP-4</option>
+                                        </select>
+                                        <small class="text-muted">GPT-4 model is more campable but <mark>12 times expensive</mark> than GPT-3.5-Turbo.</small>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="seo_model" class="form-label">SEO Model</label>
+                                        <select class="form-select" id="seo_model" name="seo_model">
+                                            <option value="gpt-3.5-turbo" {% if category.seo_model == "gpt-3.5-turbo" or category.seo_model is none %}selected{% endif %}>GPT-3.5-Turbo</option>
+                                            <option value="gpt-4" {% if category.seo_model == "gpt-4" %}selected{% endif %}>GTP-4</option>
+                                        </select>
+                                        <small class="text-muted">This model is used to craft keywords, translate words and other service parts. It is recommended to use GPT-3.5-Turbo. GPT-4 model is more campable but <mark>12 times expensive</mark> than GPT-3.5-Turbo.</small>
+                                    </div>
+                                
+                                </fieldset>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Publishing Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="publishingSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#publishingSettings" aria-expanded="false" aria-controls="publishingSettings">
+                                    Publishing Settings
+                                </button>
+                            </h2>
+                            <div id="publishingSettings" class="accordion-collapse collapse bg-light" aria-labelledby="publishingSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <fieldset>
+                                        
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_category_description" {% if category.enable_category_description %}checked{% endif %} onchange="toggleCatDescriptionAccordeon()">
+                                            <label class="form-check-label" for="enable_category_description">Generate Category Description</label>
+                                            <br>
+                                            <small class="text-muted">If enabled, it will include the service <mark>Generate category description</mark></small>
+                                        </div>
+
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_faq_generation" {% if category.enable_faq_generation %}checked{% endif %} onchange="toggleFAQSectionAccordeon()">
+                                            <label class="form-check-label" for="enable_faq_generation">Generate FAQ</label>
+                                            <br>
+                                            <small class="text-muted">If enabled, it will craft FAQ <mark>the number of the FAQs will be based on the related keywords found at Google </mark></small>
+                                        </div>
+
+                                        <div class="mb-3 form-check form-switch" id="category_meta_description" {% if category.enable_category_description %}style="display: block"{% endif %}">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_generate_meta_description" {% if category.enable_generate_meta_description %}checked{% endif %}>
+                                            <label class="form-check-label" for="enable_generate_meta_description">Generate Meta Description</label>
+                                            <br>
+                                            <small class="text-muted">If enabled, it will include the service <mark>generating meta description</mark></small>
+                                        </div>
+                                   
+                                        <div class="mb-3 form-check form-switch d-none">
+                                            <input type="checkbox" class="form-check-input" id="test_mode" {% if category.test_mode or category.test_mode is none %}checked{% endif %}>
+                                            <label class="form-check-label" for="test_mode">Test Mode is Active!</label>
+                                            <br>
+                                            <small class="text-muted">If disabled it will update the products at the store</small>
+                                        </div>
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="print_prompt" {% if category.print_prompt %}checked{% endif %}>
+                                            <label class="form-check-label" for="print_prompt">Print Prompt</label>
+                                            <br>
+                                            <small class="text-muted">It will print only the prompt that is used to generate description without generating it!</small>
+                                        </div>
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="print_scraped_data" {% if category.print_scraped_data %}checked{% endif %}>
+                                            <label class="form-check-label" for="print_scraped_data">Print Scraped Data</label>
+                                            <br>
+                                            <small class="text-muted">It will print the scrapped data from the website. It is related with the category properties!</small>
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Website Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="websiteSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#websiteSettings" aria-expanded="false" aria-controls="websiteSettings">
+                                    Content Settings
+                                </button>
+                            </h2>
+                            <div id="websiteSettings" class="accordion-collapse collapse bg-light" aria-labelledby="websiteSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- Your website settings content here -->
+                                    <fieldset>
+                                        <p class="text-black-50">Please provide settings for category description.</p>
+                                        
+                                        <hr md-3>
+                                        
+                                        <div class="mb-3">
+                                            <label for="website_name" class="form-label">Store Name</label>
+                                            <input type="text" class="form-control" id="website_name" placeholder="Website Name" value="{{ category.website_name | default('', true) }}">
+                                        </div>
+
+                                        <hr md-3> 
+
+                                        <div class="mb-3">
+                                            <label for="category_id" class="form-label">Process only category:</label>
+                                            <select id="category_id" class="form-control" disabled>
+                                                <option value=""></option> 
+                                                <option selected="selected" value="{{ category.category_id | default('', true) }}">{{ category.category_name | default('', true) }}</option>
+                                            </select>
+                                            <input type="hidden" id="category_name" value="{{ category.category_name | default('', true) }}">
+                                            <small class="text-muted">If <mark>empty</mark> it will process all categories</small>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="include_properties" name="include_properties" {% if category.include_properties %}checked{% endif %} onchange="toggleIncludeProperties()">
+                                            <label class="form-check-label" for="include_properties">Include category properties</label><br />
+                                            <small class="text-muted">If enabled, you will be able to tell the system the number of properties and values to be extracted from the category</small>
+                                        </div>
+
+                                        <div id="props_section" style="display:none;">
+        
+                                            <div class="mb-3">
+                                                <label for="max_props" class="form-label">Maximum Properties</label>
+                                                <select class="form-select" id="max_props">
+                                                    {% for i in range(0, 15) %}
+                                                    <option value="{{ i }}" {% if category.max_props == i %}selected{% endif %}>{{ i }} propertie{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="max_property_values" class="form-label">Maximum Property Values</label>
+                                                <select class="form-select" id="max_property_values">
+                                                    {% for i in range(0, 15) %}
+                                                    <option value="{{ i }}" {% if category.max_property_values == i %}selected{% endif %}>{{ i }} value{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="max_order_pages" class="form-label">Maximum Order Pages</label>
+                                            <input type="range" class="form-range" value="{{ category.max_order_pages | default(1, true) }}" min="1" max="100" step="1" id="max_order_pages" oninput="updateMaxOrderPages(this.value)">
+                                            <span id="maxOrderPagesValue">{{ category.max_order_pages | default(0, true) }}</span>
+                                        </div>
+                                    
+                                        <div class="mb-3">
+                                            <label for="description_length" class="form-label">Maximum Category Description Length</label>
+                                            <input type="range" class="form-range" value="{{ category.description_length | default(1, true) }}" min="1" max="900" step="10" id="description_length" oninput="updateDescriptionLenght(this.value)">
+                                            <span id="DescriptionLenght">{{ category.description_length | default(10, true) }}</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="threshold_lenght" class="form-label">Threshold Length</label>
+                                            <input type="text" class="form-control" id="threshold_lenght" value="{{ category.threshold_lenght | default('', true) }}">
+                                            <small class="text-muted">The threshold that will be used to cut the prompt in two parts</small>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="use_main_keywords" class="form-label md-3">Main Keywords</label>
+                                            <input type="text" class="form-control" data-role="tagsinput" id="use_main_keywords" value="{{ category.use_main_keywords | default(category.category_name, true) }}">
+                                            <small class="text-muted">For each keyword will make a Google research for relevant searches and it will build a keyword cluster</small>
+                                        </div>
+                                         
+        
+                                    </fieldset> 
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Product description settings -->
+                        <div class="accordion-item" id="category_description" style="display: none;">
+                            <h2 class="accordion-header" id="textGenerateSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#textGenerateSettings" aria-expanded="false" aria-controls="textGenerateSettings">
+                                    Category Description Settings
+                                </button>
+                            </h2>
+                            <div id="textGenerateSettings" class="accordion-collapse collapse bg-light" aria-labelledby="textGenerateSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- Your website settings content here -->
+                                    <fieldset>
+                                        <p class="text-black-50">Please provide what type of information should be included in the category descriptions</p>
+                                        <hr md-3>   
+                                        <div class="mb-3">
+                                            <label for="length" class="form-label">Lenght of the description (in words)</label>
+                                            <input type="range" class="form-range" value="{{ category.length | default(10, true) }}" min="10" max="1200" step="10" id="length" oninput="updateLengthValue(this.value)">
+                                            <span id="lengthValue">{{ category.length | default(10, true) }}</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="temperature" class="form-label">Temperature</label>
+                                            <input type="range" class="form-range" value="{{ category.temperature | default(0, true) }}" min="0" max="2" step="0.1" id="temperature" oninput="updateTemperatureValue(this.value)">
+                                            <span id="temperatureValue">{{ category.temperature | default(0, true) }}</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="language" class="form-label">Language</label>
+                                            <input type="text" class="form-control" id="language" value="{{ category.language | default('', true) }}">
+                                            <small class="text-muted">You can write any language here. Example: <mark>fluent Bulgarian</mark></small>
+                                        </div>
+
+                                        <hr md-3> 
+                                    
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="include_sales_info" {% if category.include_sales_info %}checked{% endif %} onchange="toggleSalesInfo()">
+                                            <label class="form-check-label" for="include_sales_info">Include Sales Information</label><br />
+                                            <small class="text-muted">If enabled will include sales info in the generated content like Best selling brands and Best selling products</small>
+                                        </div>
+
+
+                                        <div id="sales_info" style="display:none;">
+                                        
+                                            <hr md-3>
+
+                                            <div class="mb-3">
+                                                <label for="add_best_selling_products" class="form-label">Add Best Selling Products Information</label>
+                                                <select class="form-select" id="add_best_selling_products">
+                                                    {% for i in range(0, 10) %}
+                                                    <option value="{{ i }}" {% if category.add_best_selling_products == i %}selected{% endif %}>{{ i }} product{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <small class="text-muted">If <mark>0</mark> it will NOT add information for Best Selling products</small>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label for="add_top_brands" class="form-label">Add Information for Top Brands</label>
+                                                <select class="form-select" id="add_top_brands">
+                                                    {% for i in range(0, 10) %}
+                                                    <option value="{{ i }}" {% if category.add_top_brands == i %}selected{% endif %}>{{ i }} brand{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <small class="text-muted">If <mark>0</mark> it will NOT add information for Top Brands</small>
+                                            </div>
+                                        <hr md-3>
+                                        </div>
+
+                                        
+                                    
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="only_active_products" {% if category.only_active_products %}checked{% endif %}>
+                                            <label class="form-check-label" for="only_active_products">Process only <mark>Active products</mark></label>
+                                        </div>
+                                    
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="include_category_info" {% if category.include_category_info %}checked{% endif %}>
+                                            <label class="form-check-label" for="include_category_info">Include Category Information</label><br />
+                                            <small class="text-muted">If enabled will include category levels like root category, same level category and child categories</small>
+                                        </div> 
+
+                                        <hr md-3>
+
+                                        <div class="mb-3">
+                                            <label for="number_images" class="form-label">Use images in description</label>
+                                            <select class="form-select" id="number_images">
+                                                {% for i in range(0, 5) %}
+                                                <option value="{{ i }}" {% if category.number_images == i %}selected{% endif %}>{{ i }} image{{ 's' if i > 1 }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <small class="text-muted">To better illustrate the content include number of images. If 0, no images will be included.</small>
+                                        </div>
+                                        
+                                        <hr md-3>
+                                        <div class="md-3">
+                                            <label class="form-label" for="additional_instructions">Additional instructions</label>
+                                            <textarea class="form-control" id="additional_instructions" rows="3">{{ category.additional_instructions | default('', true) }}</textarea>
+                                        </div>
+                                        <hr md-3>
+                                        <div class="md-3">
+                                            <label class="form-label" for="system_instructions">Overwrite System instructions</label>
+                                            <textarea class="form-control" id="system_instructions" rows="8" placeholder="The output must be a coherent and detailed description of the category in question in strictly and valid HTML format. It should. be written in XXX language. The output should contains valid HTML code except tags like H1, newline, body and other main tags. For headings use H2 or H3, for bold use strong tag, for italic use em tag. The output must be ONLY the description explicitly and you should keep the XXX language from the prompt!">{{ category.system_instructions | default('', true) }}</textarea>
+                                            <small class="text-muted">Add instructions only if you know what you are doing!</small>
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+
+                        
+<!-- FAQ settings -->
+<div class="card mt-4">
+    <h5 class="card-header">FAQ Generation Settings</h5>
+    <div class="card-body">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="include_props_faq">
+            <label class="form-check-label" for="include_props_faq">
+                Include Properties in FAQ
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="include_sales_info_faq">
+            <label class="form-check-label" for="include_sales_info_faq">
+                Include Sales Information in FAQ
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="highlight_top_brands_faq">
+            <label class="form-check-label" for="highlight_top_brands_faq">
+                Highlight Top Brands in FAQ
+            </label>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <h5 class="card-header">SEO Settings for FAQ</h5>
+    <div class="card-body">
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="include_cat_name_headings">
+            <label class="form-check-label" for="include_cat_name_headings">
+                Include Category Name at Headings
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="include_wiki_links_faq">
+            <label class="form-check-label" for="include_wiki_links_faq">
+                Include Wiki Links in FAQ
+            </label>
+        </div>
+        <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="" id="link_top_brands_faq">
+            <label class="form-check-label" for="link_top_brands_faq">
+                Link Top Brands in FAQ
+            </label>
+        </div>
+    </div>
+</div>
+d>
+    <title>Category Settings Form</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/select2-bootstrap-theme/0.1.0-beta.10/select2-bootstrap.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
+
+    
+    
+    <style>
+    .bootstrap-tagsinput {
+        width: 100%;
+        padding: 6px 12px;
+        border-radius: .25rem;
+        margin: 3px;
+        line-height: 36px;
+    }
+
+    .bootstrap-tagsinput .tag {
+        color: #fff;
+        background-color: #e64445;
+        border: none;
+        padding: 5px;
+        margin: 2px;
+    }
+    .gradient-custom {
+            /* fallback for old browsers */
+            background: #667eea;
+        
+            /* Chrome 10-25, Safari 5.1-6 */
+            background: -webkit-linear-gradient(to right, rgba(102,126,234,1), rgba(118,75,162,1));
+        
+            /* W3C, IE 10+/ Edge, Firefox 16+, Chrome 26+, Opera 12+, Safari 7+ */
+            background: linear-gradient(to right, rgba(102,126,234,1), rgba(118,75,162,1))
+        }
+        .nav-link, .nav-link:hover {
+            color: #fff;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="d-flex align-items-center text-white px-3 h5 mb-4 justify-content-between gradient-custom" style="height: 55px">
+        <div>Category Description for {{ category.category_name }}
+
+                <a href="/processed_categories/{{ category.project_id }}" class="btn btn-outline-light btn-sm">Back to Processed categories</a>
+
+        </div>
+        
+        <div class="d-flex align-items-center">
+            {% if current_user.is_authenticated %}
+            <ul class="nav">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" href="#" role="button" aria-expanded="false">{{ current_user.name }}</a>
+                    <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="/">Projects</a></li>
+                    <li><a class="dropdown-item" href="/users">Users</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a href="/logout" class="dropdown-item">Logout</a></li>
+                    </ul>
+                </li>
+            </ul>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-4">
+                <form id="settingsForm" class="mb-1">
+                    <div class="accordion" id="settingsAccordion">
+                        <!-- General Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="generalSettingsHeading">
+                                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#generalSettings" aria-expanded="true" aria-controls="generalSettings">
+                                    General Settings
+                                </button>
+                            </h2>
+                            <div id="generalSettings" class="accordion-collapse collapse show bg-light" aria-labelledby="generalSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <!-- App Settings Inputs -->
+                                <div class="accordion-body">
+                                <fieldset>
+                                    <p class="text-black-50">Please provide the general configuration for the application.</p>
+                                
+                                    <div class="mb-3">
+                                        <label for="url" class="form-label">Store URL</label>
+                                        <input type="text" class="form-control" id="url" placeholder="URL" value="{{ category.url | default('', true) }}">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="X-CloudCart-ApiKey" class="form-label">X-CloudCart-ApiKey</label>
+                                        <input type="text" class="form-control" id="X-CloudCart-ApiKey" value="{{ category.x_cloudcart_apikey | default('', true) }}">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="openai_key" class="form-label">OpenAI Key</label>
+                                        <input type="text" class="form-control" id="openai_key" required>
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <label for="model" class="form-label">Model</label>
+                                        <select class="form-select" id="model" name="model">
+                                            <option value="gpt-3.5-turbo-16k" {% if category.model == "gpt-3.5-turbo-16k" or category.model is none %}selected{% endif %}>GPT-3.5-Turbo</option>
+                                            <option value="gpt-4" {% if category.model == "gpt-4" %}selected{% endif %}>GTP-4</option>
+                                        </select>
+                                        <small class="text-muted">GPT-4 model is more campable but <mark>12 times expensive</mark> than GPT-3.5-Turbo.</small>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="seo_model" class="form-label">SEO Model</label>
+                                        <select class="form-select" id="seo_model" name="seo_model">
+                                            <option value="gpt-3.5-turbo" {% if category.seo_model == "gpt-3.5-turbo" or category.seo_model is none %}selected{% endif %}>GPT-3.5-Turbo</option>
+                                            <option value="gpt-4" {% if category.seo_model == "gpt-4" %}selected{% endif %}>GTP-4</option>
+                                        </select>
+                                        <small class="text-muted">This model is used to craft keywords, translate words and other service parts. It is recommended to use GPT-3.5-Turbo. GPT-4 model is more campable but <mark>12 times expensive</mark> than GPT-3.5-Turbo.</small>
+                                    </div>
+                                
+                                </fieldset>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Publishing Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="publishingSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#publishingSettings" aria-expanded="false" aria-controls="publishingSettings">
+                                    Publishing Settings
+                                </button>
+                            </h2>
+                            <div id="publishingSettings" class="accordion-collapse collapse bg-light" aria-labelledby="publishingSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <fieldset>
+                                        
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_category_description" {% if category.enable_category_description %}checked{% endif %} onchange="toggleCatDescriptionAccordeon()">
+                                            <label class="form-check-label" for="enable_category_description">Generate Category Description</label>
+                                            <br>
+                                            <small class="text-muted">If enabled, it will include the service <mark>Generate category description</mark></small>
+                                        </div>
+
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_faq_generation" {% if category.enable_faq_generation %}checked{% endif %} onchange="toggleFAQSectionAccordeon()">
+                                            <label class="form-check-label" for="enable_faq_generation">Generate FAQ</label>
+                                            <br>
+                                            <small class="text-muted">If enabled, it will craft FAQ <mark>the number of the FAQs will be based on the related keywords found at Google </mark></small>
+                                        </div>
+
+                                        <div class="mb-3 form-check form-switch" id="category_meta_description" {% if category.enable_category_description %}style="display: block"{% endif %}">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="enable_generate_meta_description" {% if category.enable_generate_meta_description %}checked{% endif %}>
+                                            <label class="form-check-label" for="enable_generate_meta_description">Generate Meta Description</label>
+                                            <br>
+                                            <small class="text-muted">If enabled, it will include the service <mark>generating meta description</mark></small>
+                                        </div>
+                                   
+                                        <div class="mb-3 form-check form-switch d-none">
+                                            <input type="checkbox" class="form-check-input" id="test_mode" {% if category.test_mode or category.test_mode is none %}checked{% endif %}>
+                                            <label class="form-check-label" for="test_mode">Test Mode is Active!</label>
+                                            <br>
+                                            <small class="text-muted">If disabled it will update the products at the store</small>
+                                        </div>
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="print_prompt" {% if category.print_prompt %}checked{% endif %}>
+                                            <label class="form-check-label" for="print_prompt">Print Prompt</label>
+                                            <br>
+                                            <small class="text-muted">It will print only the prompt that is used to generate description without generating it!</small>
+                                        </div>
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" role="switch" id="print_scraped_data" {% if category.print_scraped_data %}checked{% endif %}>
+                                            <label class="form-check-label" for="print_scraped_data">Print Scraped Data</label>
+                                            <br>
+                                            <small class="text-muted">It will print the scrapped data from the website. It is related with the category properties!</small>
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Website Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="websiteSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#websiteSettings" aria-expanded="false" aria-controls="websiteSettings">
+                                    Content Settings
+                                </button>
+                            </h2>
+                            <div id="websiteSettings" class="accordion-collapse collapse bg-light" aria-labelledby="websiteSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- Your website settings content here -->
+                                    <fieldset>
+                                        <p class="text-black-50">Please provide settings for category description.</p>
+                                        
+                                        <hr md-3>
+                                        
+                                        <div class="mb-3">
+                                            <label for="website_name" class="form-label">Store Name</label>
+                                            <input type="text" class="form-control" id="website_name" placeholder="Website Name" value="{{ category.website_name | default('', true) }}">
+                                        </div>
+
+                                        <hr md-3> 
+
+                                        <div class="mb-3">
+                                            <label for="category_id" class="form-label">Process only category:</label>
+                                            <select id="category_id" class="form-control" disabled>
+                                                <option value=""></option> 
+                                                <option selected="selected" value="{{ category.category_id | default('', true) }}">{{ category.category_name | default('', true) }}</option>
+                                            </select>
+                                            <input type="hidden" id="category_name" value="{{ category.category_name | default('', true) }}">
+                                            <small class="text-muted">If <mark>empty</mark> it will process all categories</small>
+                                        </div>
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="include_properties" name="include_properties" {% if category.include_properties %}checked{% endif %} onchange="toggleIncludeProperties()">
+                                            <label class="form-check-label" for="include_properties">Include category properties</label><br />
+                                            <small class="text-muted">If enabled, you will be able to tell the system the number of properties and values to be extracted from the category</small>
+                                        </div>
+
+                                        <div id="props_section" style="display:none;">
+        
+                                            <div class="mb-3">
+                                                <label for="max_props" class="form-label">Maximum Properties</label>
+                                                <select class="form-select" id="max_props">
+                                                    {% for i in range(0, 15) %}
+                                                    <option value="{{ i }}" {% if category.max_props == i %}selected{% endif %}>{{ i }} propertie{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label for="max_property_values" class="form-label">Maximum Property Values</label>
+                                                <select class="form-select" id="max_property_values">
+                                                    {% for i in range(0, 15) %}
+                                                    <option value="{{ i }}" {% if category.max_property_values == i %}selected{% endif %}>{{ i }} value{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="max_order_pages" class="form-label">Maximum Order Pages</label>
+                                            <input type="range" class="form-range" value="{{ category.max_order_pages | default(1, true) }}" min="1" max="100" step="1" id="max_order_pages" oninput="updateMaxOrderPages(this.value)">
+                                            <span id="maxOrderPagesValue">{{ category.max_order_pages | default(0, true) }}</span>
+                                        </div>
+                                    
+                                        <div class="mb-3">
+                                            <label for="description_length" class="form-label">Maximum Category Description Length</label>
+                                            <input type="range" class="form-range" value="{{ category.description_length | default(1, true) }}" min="1" max="900" step="10" id="description_length" oninput="updateDescriptionLenght(this.value)">
+                                            <span id="DescriptionLenght">{{ category.description_length | default(10, true) }}</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="threshold_lenght" class="form-label">Threshold Length</label>
+                                            <input type="text" class="form-control" id="threshold_lenght" value="{{ category.threshold_lenght | default('', true) }}">
+                                            <small class="text-muted">The threshold that will be used to cut the prompt in two parts</small>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="use_main_keywords" class="form-label md-3">Main Keywords</label>
+                                            <input type="text" class="form-control" data-role="tagsinput" id="use_main_keywords" value="{{ category.use_main_keywords | default(category.category_name, true) }}">
+                                            <small class="text-muted">For each keyword will make a Google research for relevant searches and it will build a keyword cluster</small>
+                                        </div>
+                                         
+        
+                                    </fieldset> 
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Product description settings -->
+                        <div class="accordion-item" id="category_description" style="display: none;">
+                            <h2 class="accordion-header" id="textGenerateSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#textGenerateSettings" aria-expanded="false" aria-controls="textGenerateSettings">
+                                    Category Description Settings
+                                </button>
+                            </h2>
+                            <div id="textGenerateSettings" class="accordion-collapse collapse bg-light" aria-labelledby="textGenerateSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- Your website settings content here -->
+                                    <fieldset>
+                                        <p class="text-black-50">Please provide what type of information should be included in the category descriptions</p>
+                                        <hr md-3>   
+                                        <div class="mb-3">
+                                            <label for="length" class="form-label">Lenght of the description (in words)</label>
+                                            <input type="range" class="form-range" value="{{ category.length | default(10, true) }}" min="10" max="1200" step="10" id="length" oninput="updateLengthValue(this.value)">
+                                            <span id="lengthValue">{{ category.length | default(10, true) }}</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="temperature" class="form-label">Temperature</label>
+                                            <input type="range" class="form-range" value="{{ category.temperature | default(0, true) }}" min="0" max="2" step="0.1" id="temperature" oninput="updateTemperatureValue(this.value)">
+                                            <span id="temperatureValue">{{ category.temperature | default(0, true) }}</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="language" class="form-label">Language</label>
+                                            <input type="text" class="form-control" id="language" value="{{ category.language | default('', true) }}">
+                                            <small class="text-muted">You can write any language here. Example: <mark>fluent Bulgarian</mark></small>
+                                        </div>
+
+                                        <hr md-3> 
+                                    
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="include_sales_info" {% if category.include_sales_info %}checked{% endif %} onchange="toggleSalesInfo()">
+                                            <label class="form-check-label" for="include_sales_info">Include Sales Information</label><br />
+                                            <small class="text-muted">If enabled will include sales info in the generated content like Best selling brands and Best selling products</small>
+                                        </div>
+
+
+                                        <div id="sales_info" style="display:none;">
+                                        
+                                            <hr md-3>
+
+                                            <div class="mb-3">
+                                                <label for="add_best_selling_products" class="form-label">Add Best Selling Products Information</label>
+                                                <select class="form-select" id="add_best_selling_products">
+                                                    {% for i in range(0, 10) %}
+                                                    <option value="{{ i }}" {% if category.add_best_selling_products == i %}selected{% endif %}>{{ i }} product{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <small class="text-muted">If <mark>0</mark> it will NOT add information for Best Selling products</small>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label for="add_top_brands" class="form-label">Add Information for Top Brands</label>
+                                                <select class="form-select" id="add_top_brands">
+                                                    {% for i in range(0, 10) %}
+                                                    <option value="{{ i }}" {% if category.add_top_brands == i %}selected{% endif %}>{{ i }} brand{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <small class="text-muted">If <mark>0</mark> it will NOT add information for Top Brands</small>
+                                            </div>
+                                        <hr md-3>
+                                        </div>
+
+                                        
+                                    
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="only_active_products" {% if category.only_active_products %}checked{% endif %}>
+                                            <label class="form-check-label" for="only_active_products">Process only <mark>Active products</mark></label>
+                                        </div>
+                                    
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="include_category_info" {% if category.include_category_info %}checked{% endif %}>
+                                            <label class="form-check-label" for="include_category_info">Include Category Information</label><br />
+                                            <small class="text-muted">If enabled will include category levels like root category, same level category and child categories</small>
+                                        </div> 
+
+                                        <hr md-3>
+
+                                        <div class="mb-3">
+                                            <label for="number_images" class="form-label">Use images in description</label>
+                                            <select class="form-select" id="number_images">
+                                                {% for i in range(0, 5) %}
+                                                <option value="{{ i }}" {% if category.number_images == i %}selected{% endif %}>{{ i }} image{{ 's' if i > 1 }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <small class="text-muted">To better illustrate the content include number of images. If 0, no images will be included.</small>
+                                        </div>
+                                        
+                                        <hr md-3>
+                                        <div class="md-3">
+                                            <label class="form-label" for="additional_instructions">Additional instructions</label>
+                                            <textarea class="form-control" id="additional_instructions" rows="3">{{ category.additional_instructions | default('', true) }}</textarea>
+                                        </div>
+                                        <hr md-3>
+                                        <div class="md-3">
+                                            <label class="form-label" for="system_instructions">Overwrite System instructions</label>
+                                            <textarea class="form-control" id="system_instructions" rows="8" placeholder="The output must be a coherent and detailed description of the category in question in strictly and valid HTML format. It should. be written in XXX language. The output should contains valid HTML code except tags like H1, newline, body and other main tags. For headings use H2 or H3, for bold use strong tag, for italic use em tag. The output must be ONLY the description explicitly and you should keep the XXX language from the prompt!">{{ category.system_instructions | default('', true) }}</textarea>
+                                            <small class="text-muted">Add instructions only if you know what you are doing!</small>
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- FAQ settings -->
+                        <div class="accordion-item" id="faq_section" style="display: none;">
+                            <h2 class="accordion-header" id="faqGenerateSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faqGenerateSettings" aria-expanded="false" aria-controls="faqGenerateSettings">
+                                    FAQ Settings
+                                </button>
+                            </h2>
+                            <div id="faqGenerateSettings" class="accordion-collapse collapse bg-light" aria-labelledby="faqGenerateSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- Your website settings content here -->
+                                    <fieldset>
+                                        <p class="text-black-50">Please provide what type of information should be included in the FAQ section</p>
+                                        <hr md-3>   
+                                        <div class="mb-3">
+                                            <label for="length" class="form-label">Lenght of the description (in words)</label>
+                                            <input type="range" class="form-range" value="{{ category.length | default(10, true) }}" min="10" max="1200" step="10" id="length" oninput="updateLengthValue(this.value)">
+                                            <span id="lengthValue">{{ category.length | default(10, true) }}</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="temperature" class="form-label">Temperature</label>
+                                            <input type="range" class="form-range" value="{{ category.temperature | default(0, true) }}" min="0" max="2" step="0.1" id="temperature" oninput="updateTemperatureValue(this.value)">
+                                            <span id="temperatureValue">{{ category.temperature | default(0, true) }}</span>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <label for="language" class="form-label">Language</label>
+                                            <input type="text" class="form-control" id="language" value="{{ category.language | default('', true) }}">
+                                            <small class="text-muted">You can write any language here. Example: <mark>fluent Bulgarian</mark></small>
+                                        </div>
+
+                                        <hr md-3> 
+                                    
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="include_sales_info" {% if category.include_sales_info %}checked{% endif %} onchange="toggleSalesInfo()">
+                                            <label class="form-check-label" for="include_sales_info">Include Sales Information</label><br />
+                                            <small class="text-muted">If enabled will include sales info in the generated content like Best selling brands and Best selling products</small>
+                                        </div>
+
+
+                                        <div id="sales_info" style="display:none;">
+                                        
+                                            <hr md-3>
+
+                                            <div class="mb-3">
+                                                <label for="add_best_selling_products" class="form-label">Add Best Selling Products Information</label>
+                                                <select class="form-select" id="add_best_selling_products">
+                                                    {% for i in range(0, 10) %}
+                                                    <option value="{{ i }}" {% if category.add_best_selling_products == i %}selected{% endif %}>{{ i }} product{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <small class="text-muted">If <mark>0</mark> it will NOT add information for Best Selling products</small>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label for="add_top_brands" class="form-label">Add Information for Top Brands</label>
+                                                <select class="form-select" id="add_top_brands">
+                                                    {% for i in range(0, 10) %}
+                                                    <option value="{{ i }}" {% if category.add_top_brands == i %}selected{% endif %}>{{ i }} brand{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <small class="text-muted">If <mark>0</mark> it will NOT add information for Top Brands</small>
+                                            </div>
+                                        <hr md-3>
+                                        </div>
+
+                                        
+                                    
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="only_active_products" {% if category.only_active_products %}checked{% endif %}>
+                                            <label class="form-check-label" for="only_active_products">Process only <mark>Active products</mark></label>
+                                        </div>
+                                    
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="include_category_info" {% if category.include_category_info %}checked{% endif %}>
+                                            <label class="form-check-label" for="include_category_info">Include Category Information</label><br />
+                                            <small class="text-muted">If enabled will include category levels like root category, same level category and child categories</small>
+                                        </div> 
+
+                                        <hr md-3>
+
+                                        <div class="mb-3">
+                                            <label for="number_images" class="form-label">Use images in description</label>
+                                            <select class="form-select" id="number_images">
+                                                {% for i in range(0, 5) %}
+                                                <option value="{{ i }}" {% if category.number_images == i %}selected{% endif %}>{{ i }} image{{ 's' if i > 1 }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <small class="text-muted">To better illustrate the content include number of images. If 0, no images will be included.</small>
+                                        </div>
+                                        
+                                        <hr md-3>
+                                        <div class="md-3">
+                                            <label class="form-label" for="additional_instructions">Additional instructions</label>
+                                            <textarea class="form-control" id="additional_instructions" rows="3">{{ category.additional_instructions | default('', true) }}</textarea>
+                                        </div>
+                                        <hr md-3>
+                                        <div class="md-3">
+                                            <label class="form-label" for="system_instructions">Overwrite System instructions</label>
+                                            <textarea class="form-control" id="system_instructions" rows="8" placeholder="The output must be a coherent and detailed description of the category in question in strictly and valid HTML format. It should. be written in XXX language. The output should contains valid HTML code except tags like H1, newline, body and other main tags. For headings use H2 or H3, for bold use strong tag, for italic use em tag. The output must be ONLY the description explicitly and you should keep the XXX language from the prompt!">{{ category.system_instructions | default('', true) }}</textarea>
+                                            <small class="text-muted">Add instructions only if you know what you are doing!</small>
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+
+
+
+
+                        <!-- SEO Settings -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="seoSettingsHeading">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#seoSettings" aria-expanded="false" aria-controls="seoSettings">
+                                    SEO Settings <small class="text-muted">(Optional but Recommended)</small>
+                                </button>
+                            </h2>
+                            <div id="seoSettings" class="accordion-collapse collapse bg-light" aria-labelledby="seoSettingsHeading" data-bs-parent="#settingsAccordion">
+                                <div class="accordion-body">
+                                    <!-- Your SEO settings content here -->
+                                    <fieldset>
+                                        <p class="text-black-50">The following section is optional. If enabled it will include valueable information at the description in <mark>Feature/Benefit dichotomy</mark> style and make it SEO friendly. </p>
+                                        <small class="text-muted">It will increase the price of the service by <mark>3x times!</mark></small>
+                                        <hr md-3> 
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="use_seo_package" name="use_seo_package" {% if category.use_seo_package %}checked{% endif %} onchange="toggleSEOSettings()">
+                                            <label class="form-check-label" for="use_seo_package">Use SEO Package</label>
+                                        </div>
+                                        
+                                        <div id="seo_fields_cat" style="display:none;">
+                                            <hr md-3>
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="include_category_name_at_headings" name="include_category_name_at_headings" {% if category.include_category_name_at_headings %}checked{% endif %}>
+                                                <label class="form-check-label" for="include_category_name_at_headings">Include the category name at the Headings</label><br />
+                                                <small class="text-muted">For better SEO you can include the name of the category into the headings of each section.</small>
+                                            </div>
+
+                                            <hr md-3> 
+
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="top_brands_links" name="top_brands_links" {% if category.top_brands_links %}checked{% endif %}>
+                                                <label class="form-check-label" for="top_brands_links">Use links to link the Top Brands</label><br />
+                                                <small class="text-muted">If enabled it will link each of the top brands with its link to the category and applied filter by the brand.</small>
+                                            </div>
+
+                                            <hr md-3> 
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="generate_keywords" name="generate_keywords" {% if category.generate_keywords %}checked{% endif %} onchange="toggleGenerateKeywords()">
+                                                <label class="form-check-label" for="generate_keywords">Generate keywords for properties</label><br />
+                                                <small class="text-muted">Instead of using the values of the properties of the category, it will generate SEO keywords for each value</small>
+                                            </div>
+                                            <div id="generateKeywords" style="display:none;">
+                                                <div class="mb-3">
+                                                    <label for="max_keywords" class="form-label">Craft Maximum Keywords per property</label>
+                                                    <select class="form-select" id="max_keywords">
+                                                        {% for i in range(1, 10) %}
+                                                        <option value="{{ i }}" {% if category.max_keywords == i %}selected{% endif %}>{{ i }} keyword{{ 's' if i > 1 }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                    <small class="text-muted">The maximum number of keywords to be generated for each property value</small>
+                                                </div>
+
+                                                <hr md-3>
+                                            </div>
+                                            <hr md-3>
+                                            <div class="mb-3">
+                                                <label for="category_links" class="form-label">Add links to the categories</label>
+                                                <select class="form-select" id="category_links">
+                                                    {% for i in range(0, 10) %}
+                                                    <option value="{{ i }}" {% if category.category_links == i %}selected{% endif %}>{{ i }} link{{ 's' if i > 1 }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <small class="text-muted">If 0 it will not add links to the categiries. It will add links to same lavel categories, sub-categories, top category.</small>
+                                            
+                                            </div>
+                                            
+                                            <hr md-3> 
+
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="generic_keywords" name="generic_keywords" {% if category.generic_keywords %}checked{% endif %}>
+                                                <label class="form-check-label" for="generic_keywords">Create generic SEO keywords for the description</label><br />
+                                                <small class="text-muted">If enabled it will create a generic keywords from the category name and the word price. For example: Sneakers price</small>
+                                            </div>
+
+                                            <hr md-3> 
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="wiki_faq_links" name="wiki_faq_links" {% if category.wiki_faq_links %}checked{% endif %}>
+                                                <label class="form-check-label" for="wiki_faq_links">Add a Wikipedia link based on the name of the category</label><br />
+                                                <small class="text-muted">For more authoritive link building use external link to Wikipedia. It will be to a page describing the category. For example: the wikipedia page for LED TV</small>
+                                            </div>                   
+
+                                            <hr md-3> 
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="e_e_a_t" name="e_e_a_t" {% if category.e_e_a_t %}checked{% endif %}>
+                                                <label class="form-check-label" for="e_e_a_t">Enable E-E-A-T writing style</label><br />
+                                                <small class="text-muted">Read more <a href="https://developers.google.com/search/blog/2022/12/google-raters-guidelines-e-e-a-t" target="_blank">here</a> about the Google Guidlines</small>
+                                            </div>
+                                          
+                                        </div>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+    </div>
+  
+    <div class="col-md-8">
+        <div class="card" style="position: sticky; top: 0;">
+            <div class="card-header border-0">
+                <a href="" id="clear-records-button">Terminal</a>
+            </div>
+            <div class="card-body p-0">
+                <pre id="output" class="border p-2 m-3" style="height: 72vh; overflow: auto; background-color: black; color: rgb(244, 244, 244); white-space: pre-wrap;">
+                </pre>
+            </div>
+            <div class="d-flex justify-content-between m-3">
+                <div>
+                    <button id="stopButton" type="button" class="btn btn-danger ps-3 pe-3 pb-3 pt-3" onclick="cancelProcess()" disabled>Process not running</button>
+                    <button id="calculateButton" class="btn btn-secondary ps-3 pe-3 pb-3 pt-3">Calculate</button>
+                </div>
+
+                <div class="mb-3 form-check form-switch">
+                    <input type="checkbox" class="form-check-input" id="test_mode2" {% if category.test_mode or category.test_mode is none %}checked{% endif %} onchange="toggleTestMode()">
+                    <label class="form-check-label" for="test_mode2">Test Mode is Active!</label>
+                    <br>
+                    <small class="text-muted">If disabled it will update the products at the store</small>
+                </div>
+                
+                
+                <button type="button" id="generateButton" onclick="startProcess()" value="Generate and Save" class="btn btn-primary ps-3 pe-3 pb-3 pt-3" data-project-id="{{ project.id }}">Generate and Save</button>
+
+
+                
+            </form>
+            </div>                 
+        </div>
+    </div>
+    <script>
+        function cancelProcess() {
+            // this function will disable the button
+            var $stopButton = $("#stopButton");
+            $stopButton.prop("disabled", true);
+            $stopButton.text("Canceling...");
+        }
+        function startProcess() {
+            var $generateButton = $("#generateButton");
+            $generateButton.prop("disabled", true);
+            $generateButton.text("Generating...");
+            $generateButton.css("background-color", "#e64445");
+
+            handleFormSubmit();
+        }
+/*
+        $(document).ready(function() {
+            var $generateButton = $("#generateButton");
+            var $stopButton = $("#stopButton");  // Define stop button
+            var project_id = $generateButton.data("project-id");
+
+            var intervalId = setInterval(function() {
+                $.get("/get_status", {project_id: project_id}, function(data) {
+                    if (data['in_progress'] == 1) {
+                        $generateButton.prop("disabled", true);
+                        $generateButton.text("Generating...");
+                        $generateButton.css("background-color", "#e64445");
+
+                        $stopButton.prop("disabled", false);
+                        $stopButton.text("Cancel the process");
+                        $stopButton.css("background-color", "#e64445");
+                    } else {
+                        $generateButton.prop("disabled", false);
+                        $generateButton.text("Generate and Save");
+                        $generateButton.css("background-color", "");
+
+                        $stopButton.prop("disabled", true);
+                        $stopButton.text("Process not running"); // or any other text
+                        $stopButton.css("background-color", "");
+                    }
+                });
+            }, 1000);
+        });
+*/
+        
+    </script>
+    <script type="text/javascript" charset="utf-8">
+        $(document).ready(function() {
+            var socket = io.connect('https://' + document.domain + ':' + location.port + '/');
+            var $generateButton = $("#generateButton");
+            var $stopButton = $("#stopButton");
+        
+            // Request to get in_progress status
+            $.ajax({
+                url: '/get_category_status',
+                type: 'GET',
+                data: { 'project_id': '{{ project.id }}' }, // Pass project_id if necessary
+                success: function(response) {
+                    if(response.in_progress) {
+                        // Disable the button and change the text and color
+                        $generateButton.prop("disabled", true);
+                        $generateButton.text("Generating...");
+                        $generateButton.css("background-color", "#e64445");
+
+                        $stopButton.prop("disabled", false);
+                        $stopButton.text("Cancel the process");
+                        $stopButton.css("background-color", "#e64445");
+                        console.log("Process is running");
+                    }
+                },
+                error: function(error) {
+                    console.log(error);
+                }
+            });
+        
+            socket.on('connect', function() {
+                socket.emit('join', { 'project_id': '{{ project.id }}', 'username': '{{ current_user.name }}' });
+            });
+        
+            socket.on('log', function(msg) {
+                document.getElementById('output').textContent += msg.data + '\n';
+        
+                // Scroll to the bottom
+                var outputDiv = document.getElementById("output");
+                outputDiv.scrollTop = outputDiv.scrollHeight;
+                
+                // Change the buttons text and color based on the state of the process emitted from the backend. 
+                // Example: If the process is running, disable the generate button and change the text and color of the stop button
+                // If the message from the backend contains 'Started', it means the process has started and the cancel button should be enabled
+                // and the generate button should be disabled and the text and color should be changed.
+                // If the message from the backend contains 'Completed', it means the process has completed and the cancel button should be disabled 
+                // and the generate button should be enabled and the text and color should be changed.
+
+                if (msg.data.includes('Started')) {
+                    $generateButton.prop("disabled", true);
+                    $generateButton.text("Generating...");
+                    $generateButton.css("background-color", "#e64445");
+        
+                    $stopButton.prop("disabled", false);
+                    $stopButton.text("Cancel the process");
+                    $stopButton.css("background-color", "#e64445");
+                } else if (msg.data.toLowerCase().includes('completed') || msg.data.toLowerCase().includes('error')  || msg.data.toLowerCase().includes('stopped') || msg.data.toLowerCase().includes('ended')) {
+                    $generateButton.prop("disabled", false);
+                    $generateButton.text("Generate and Save");
+                    $generateButton.css("background-color", "");
+        
+                    $stopButton.prop("disabled", true);
+                    $stopButton.text("Process not running"); // or any other text
+                    $stopButton.css("background-color", "");
+                }
+            })
+        });
+    </script>
+    
+    
+    
+    
+        
+    <script>
+        window.onload = function() {
+        if (document.getElementById('use_seo_package').checked) {
+            document.getElementById('seo_fields_cat').style.display = 'block';
+        }
+        if (document.getElementById('include_sales_info').checked) {
+            document.getElementById('sales_info').style.display = 'block';
+        }
+        if (document.getElementById('generate_keywords').checked) {
+            document.getElementById('generateKeywords').style.display = 'block';
+        }
+        /// hide category short description accordeaon when enable_category_short_description is false
+        if (document.getElementById('enable_category_description').checked) {
+            document.getElementById('category_description').style.display = 'block';
+            document.getElementById('category_meta_description').style.display = 'block';
+        }else{
+            document.getElementById('category_meta_description').style.display = 'none';
+        }
+        if (document.getElementById('enable_faq_generation').checked) {
+            document.getElementById('faq_section').style.display = 'block';
+        }
+        if (document.getElementById('test_mode2').checked) {
+            document.getElementById('test_mode').checked = true;
+        }
+        if (document.getElementById('include_properties').checked) {
+            document.getElementById('props_section').style.display = 'block';
+        }
+        
+    };
+    </script>
+    <script>
+        function toggleTestMode() {
+            var testMode2 = document.getElementById("test_mode2");
+            var testMode = document.getElementById("test_mode");
+            if (testMode2.checked == true){
+                testMode.checked = true;
+            } else {
+                testMode.checked = false;
+            }
+        }
+    </script>
+    <script>
+        function toggleTestMode2() {
+            var testMode2 = document.getElementById("test_mode");
+            var testMode = document.getElementById("test_mode2");
+            if (testMode.checked == true){
+                testMode2.checked = true;
+            } else {
+                testMode2.checked = false;
+            }
+        }
+    </script>
+    <script>
+        function toggleSEOSettings() {
+            var checkBox = document.getElementById("use_seo_package");
+            var seoFields = document.getElementById("seo_fields_cat");
+            if (checkBox.checked == true){
+                seoFields.style.display = "block";
+            } else {
+                seoFields.style.display = "none";
+            }
+        }
+    </script>
+    <script>
+        function toggleIncludeProperties() {
+            var checkBox = document.getElementById("include_properties");
+            var propertiesSection = document.getElementById("props_section");
+            if (checkBox.checked == true){
+                propertiesSection.style.display = "block";
+            } else {
+                propertiesSection.style.display = "none";
+            }
+        }
+    </script>
+    <script>
+        function toggleGenerateKeywords() {
+            var checkBox = document.getElementById("generate_keywords");
+            var keywordsFields = document.getElementById("generateKeywords");
+            if (checkBox.checked == true){
+                keywordsFields.style.display = "block";
+            } else {
+                keywordsFields.style.display = "none";
+            }
+        }
+    </script>
+    <script>
+        function toggleSalesInfo() {
+            var checkBox = document.getElementById("include_sales_info");
+            var salesFields = document.getElementById("sales_info");
+            if (checkBox.checked == true){
+                salesFields.style.display = "block";
+            } else {
+                salesFields.style.display = "none";
+            }
+        }
+    </script>
+
+    <script>
+        function toggleCatDescriptionAccordeon() {
+            var checkBox = document.getElementById("enable_category_description");
+            var hideProductDesc = document.getElementById("category_description");
+            var hideMetaDesc = document.getElementById("category_meta_description");
+            if (checkBox.checked == true){
+                hideProductDesc.style.display = "block";
+                hideMetaDesc.style.display = "block";
+            } else {
+                hideProductDesc.style.display = "none";
+                hideMetaDesc.style.display = "none";
+                document.getElementById("enable_generate_meta_description").checked = false;
+            }
+        }
+    </script>
+    <script>
+        function toggleFAQSectionAccordeon() {
+            var checkBox = document.getElementById("enable_faq_generation");
+            var hideFAQDesc = document.getElementById("faq_section");
+            if (checkBox.checked == true){
+                hideFAQDesc.style.display = "block";
+            } else {
+                hideFAQDesc.style.display = "none";
+            }
+        }
+    </script>
+    <script>
+        function updateTemperatureValue(val) {
+            document.getElementById('temperatureValue').textContent = val;
+        }
+        function updateLengthValue(val) {
+            document.getElementById('lengthValue').textContent = val;
+        }
+        function updateShortTemperatureValue(val) {
+            document.getElementById('shortTemperatureValue').textContent = val;
+        }
+        function updateMaxOrderPages(val) {
+            document.getElementById('maxOrderPagesValue').textContent = val;
+        }
+        function updateDescriptionLenght(val) {
+            document.getElementById('DescriptionLenght').textContent = val;
+        }
+        function updateShortLengthValue(val) {
+            document.getElementById('shortLengthValue').textContent = val;
+        }
+
+            
+    </script>
+    <script>
+        function handleFormSubmit() {
+            // Collect settings data from the form
+            var data = {
+                "app_settings": {
+                    "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
+                    "openai_key": $('#openai_key').val(),
+                    "model": $('#model').val(),
+                    "seo_model": $('#seo_model').val(),
+                    "temperature": parseInt($('#temperature').val()) || 0,
+                    "url": $('#url').val(),
+                    "website_name": $('#website_name').val(),
+                    "use_seo_package": $('#use_seo_package').is(':checked'),
+                    "currency": $('#currency').val(),
+                    "length": parseInt($('#length').val()) || 0,
+                    "threshold_lenght": parseInt($('#threshold_lenght').val()) || 0,
+                    "test_mode": $('#test_mode').is(':checked'),
+                    "print_prompt": $('#print_prompt').is(':checked'),
+                    "only_active": $('#only_active').is(':checked'),
+                    "skip_products_with_description": parseInt($('#skip_products_with_description').val()) || 0,
+                    "specific_product": $('#specific_product').val(),
+                    "category_id": $('#category_id').val(),
+                    "category_name": $('#category_name').val(),
+                    "only_vendor": $('#only_vendor').val(),
+                    "only_vendor_name": $('#only_vendor_name').val(),
+                    "language": $('#language').val(),
+                    "niche": $('#niche').val(),
+                    "free_delivery_over": parseInt($('#free_delivery_over').val()) || 99999999,
+                    "mention_free_delivery_price": $('#mention_free_delivery_price').is(':checked'),
+                    "enable_category_description": $('#enable_category_description').is(':checked'),
+                    "enable_generate_meta_description": $('#enable_generate_meta_description').is(':checked'),
+                    "print_scraped_data": $('#print_scraped_data').is(':checked'),
+                    
+                },
+                "seo_settings": {
+                    "include_category_name_at_headings": $('#include_category_name_at_headings').is(':checked'),
+                    "generate_keywords": $('#generate_keywords').is(':checked'),
+                    "top_brands_links": $('#top_brands_links').is(':checked'),
+                    "generic_keywords": $('#generic_keywords').is(':checked'),
+                    "max_keywords": parseInt($('#max_keywords').val()) || 0,
+                    "category_links": parseInt($('#category_links').val()) || 0,
+                    "wiki_faq_links": $('#wiki_faq_links').is(':checked'),
+                    "e_e_a_t": $('#e_e_a_t').is(':checked'),
+                },
+                "category_settings": {
+                    "category_id": $('#category_id').val(),
+                    "category_name": $('#category_name').val(),
+                    "include_properties": $('#include_properties').is(':checked'),
+                    "max_props": parseInt($('#max_props').val()) || 0,
+                    "max_property_values": parseInt($('#max_property_values').val()) || 0,
+                    "max_keywords": parseInt($('#max_keywords').val()) || 0,
+                    "max_order_pages": parseInt($('#max_order_pages').val()) || 1,
+                    "description_length": parseInt($('#description_length').val()) || 0,
+                    "include_sales_info": $('#include_sales_info').is(':checked'),
+                    "only_active_products": $('#only_active_products').is(':checked'),
+                    "include_category_info": $('#include_category_info').is(':checked'),
+                    "enable_faq_generation": $('#enable_faq_generation').is(':checked'),
+                    "add_faq": parseInt($('#add_faq').val()) || 0,
+                    "add_best_selling_products": parseInt($('#add_best_selling_products').val()) || 0,
+                    "add_top_brands": parseInt($('#add_top_brands').val()) || 0,
+                    "number_images": parseInt($('#number_images').val()) || 0,
+                    "use_main_keywords": $('#use_main_keywords').val(),
+                }
+                // Get other SEO and prompt settings data...
+            };
+            // change the color and text of the Generate button, and disable it
+
+
+            //let url = window.location.href;
+            //let projectId = url.substring(url.lastIndexOf('/') + 1);
+            let projectId = "{{ project.id }}";
+            // Include the project_id in the data object
+            data["project_id"] = projectId;
+            // POST the data as JSON to the new endpoint to save settings
+            fetch('/save_settings_categories/' + projectId, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("HTTP error " + response.status);
+                    
+                }
+
+                // Once settings are saved successfully, call the /set endpoint
+                return fetch('/set_cat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("HTTP error " + response.status);
+                }
+
+                // restore the original color, text, and enable the Generate button after getting a successful response
+
+                //$('#stopButton').prop('disabled', true).text('Cancel the process');
+            })
+            .catch(function(error) {
+
+            });
+        }
+        $(document).ready(function() {
+            $('#settingsForm').submit(function(e) {
+                e.preventDefault();
+
+                startProcess();
+            });
+        });
+
+    </script>
+    <script>
+        $(document).ready(function() {
+        // Select the "Generate" button
+        $('#stopButton').click(function() {
+            $.ajax({
+                url: '/stop_category_process',
+                type: 'POST',
+                contentType: 'application/json; charset=utf-8',
+                data: JSON.stringify({ "project_id": "{{ project.id }}" }),
+            })
+            .done(function(response) {
+            })
+            .fail(function(error) {
+                console.log(error);
+                // Here you can handle errors
+            });
+        });
+    });
+
+    </script>
+    <script>
+    $(document).ready(function() {
+        $('#calculateButton').click(function() {
+        
+        $(this).prop("disabled", true);
+
+        var data = {
+            "project_id": "{{ project.id }}",
+            "app_settings": {
+                    "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
+                    "openai_key": $('#openai_key').val(),
+                    "model": $('#model').val(),
+                    "seo_model": $('#seo_model').val(),
+                    "temperature": parseInt($('#temperature').val()) || 0,
+                    "url": $('#url').val(),
+                    "website_name": $('#website_name').val(),
+                    "use_seo_package": $('#use_seo_package').is(':checked'),
+                    "currency": $('#currency').val(),
+                    "length": parseInt($('#length').val()) || 0,
+                    "threshold_lenght": parseInt($('#threshold_lenght').val()) || 0,
+                    "test_mode": $('#test_mode').is(':checked'),
+                    "print_prompt": $('#print_prompt').is(':checked'),
+                    "only_active": $('#only_active').is(':checked'),
+                    "skip_products_with_description": parseInt($('#skip_products_with_description').val()) || 0,
+                    "specific_product": $('#specific_product').val(),
+                    "category_id": $('#category_id').val(),
+                    "category_name": $('#category_name').val(),
+                    "only_vendor": $('#only_vendor').val(),
+                    "only_vendor_name": $('#only_vendor_name').val(),
+                    "language": $('#language').val(),
+                    "niche": $('#niche').val(),
+                    "free_delivery_over": parseInt($('#free_delivery_over').val()) || 99999999,
+                    "mention_free_delivery_price": $('#mention_free_delivery_price').is(':checked'),
+                    "enable_category_description": $('#enable_category_description').is(':checked'),
+                    "enable_generate_meta_description": $('#enable_generate_meta_description').is(':checked'),
+                    "print_scraped_data": $('#print_scraped_data').is(':checked'),
+                    
+                },
+                "seo_settings": {
+                    "include_category_name_at_headings": $('#include_category_name_at_headings').is(':checked'),
+                    "generate_keywords": $('#generate_keywords').is(':checked'),
+                    "top_brands_links": $('#top_brands_links').is(':checked'),
+                    "generic_keywords": $('#generic_keywords').is(':checked'),
+                    "max_keywords": parseInt($('#max_keywords').val()) || 0,
+                    "category_links": parseInt($('#category_links').val()) || 0,
+                    "wiki_faq_links": $('#wiki_faq_links').is(':checked'),
+                    "e_e_a_t": $('#e_e_a_t').is(':checked'),
+                },
+                "prompt_settings": {
+                    "purpouse": $('#purpouse').val(),
+                    "product_name": $('#product_name').is(':checked'),
+                    "price_from": $('#price_from').is(':checked'),
+                    "show_price": $('#show_price').is(':checked'),
+                    "short_description": $('#short_description').is(':checked'),
+                    "description": $('#description').is(':checked'),
+                    "vendor_name": $('#vendor_name').is(':checked'),
+                    "category_name": $('#category_name').is(':checked'),
+                    "property_option_values": $('#property_option_values').is(':checked'),
+                    "use_website_name": $('#use_website_name').is(':checked'),
+                    "use_feature_desc": $('#use_feature_desc').is(':checked'),
+                    "additional_instructions": $('#additional_instructions').val(),
+                    "system_instructions": $('#system_instructions').val(),
+                    "use_interesting_fact": $('#use_interesting_fact').is(':checked'),
+                    "use_hidden_benefit": $('#use_hidden_benefit').is(':checked'),
+                },
+                "category_settings": {
+                    "category_id": $('#category_id').val(),
+                    "category_name": $('#category_name').val(),
+                    "max_property_values": parseInt($('#max_property_values').val()) || 0,
+                    "max_keywords": parseInt($('#max_keywords').val()) || 0,
+                    "max_order_pages": parseInt($('#max_order_pages').val()) || 1,
+                    "description_length": parseInt($('#description_length').val()) || 0,
+                    "include_sales_info": $('#include_sales_info').is(':checked'),
+                    "only_active_products": $('#only_active_products').is(':checked'),
+                    "include_category_info": $('#include_category_info').is(':checked'),
+                    "enable_faq_generation": $('#enable_faq_generation').is(':checked'),
+                    "add_faq": parseInt($('#add_faq').val()) || 0,
+                    "add_best_selling_products": parseInt($('#add_best_selling_products').val()) || 0,
+                    "add_top_brands": parseInt($('#add_top_brands').val()) || 0,
+                    "number_images": parseInt($('#number_images').val()) || 0,
+                }
+            // Get other SEO and prompt settings data...
+        };
+
+        $.ajax({
+            url: '/calculate',
+            type: 'POST',
+            data: JSON.stringify(data),
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
+            async: true,
+            success: function(msg) {
+                $("#calculateButton").prop("disabled", false);
+            },
+            error: function(error) {
+                $("#calculateButton").prop("disabled", false);
+            }
+        });
+    });
+});
+
+    </script>
+    <script>
+        $(document).ready(function() {
+            // Handle button click event
+            $('#clear-records-button').click(function() {
+                // Send AJAX request
+                $.ajax({
+                    url: '/clear_processed_records',
+                    type: 'POST',
+                    data: JSON.stringify({ "project_id": "{{ project.id }}" }),  // Replace with your project ID
+                    contentType: 'application/json',
+                    success: function(response) {
+                        // Handle success response
+                        console.log(response);
+                        alert('Processed records cleared!');
+                    },
+                    error: function(xhr, status, error) {
+                        // Handle error response
+                        console.error(xhr.responseText);
+                        alert('Error clearing processed records.');
+                    }
+                });
+            });
+        });
+    </script>
+    <script>
+    $(document).ready(function() {
+
+        // Assuming these are the relevant app_settings
+        var data = {
+            "app_settings": {
+                "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
+                "url": $('#url').val(),
+            }
+        };
+        console.log(data);
+        $('#category_id').select2({
+            placeholder: "Select a category",
+            minimumResultsForSearch: Infinity,
+            allowClear: true,
+            minimumInputLength: 0,
+            theme: "bootstrap",
+            ajax: {
+                url: '/get_all_categories',  // URL to the API that returns the categories
+                type: 'POST',
+                contentType: 'application/json; charset=utf-8',
+                dataType: 'json',
+                delay: 50, // wait 250 milliseconds before triggering the request
+                data: function (params) {
+                    return JSON.stringify(data);
+                },
+                processResults: function (data) {
+                    // Transforms the top-level key of the response object from 'products' to 'results'
+                    return {
+                        results: data.categories.map(function(item) {
+                            return {
+                                id: item.id,
+                                text: item.attributes.name // assuming the name is in the 'attributes' object
+                            };
+                        })
+                    };
+                },
+                cache: true
+            }
+        }).on('select2:select', function (e) {
+            var data = e.params.data;
+            $('#category_name').val(data.text);
+        }).on('select2:unselect', function (e) {
+            $('#category_name').val('');
+        });
+
+    });  
+    </script>
+    
+
+<script>
+$(document).ready(function() {
+
+    // Assuming these are the relevant app_settings
+    var data = {
+        "app_settings": {
+            "X-CloudCart-ApiKey": $('#X-CloudCart-ApiKey').val(),
+            "url": $('#url').val(),
+        }
+    };
+
+    $('#only_vendor').select2({
+        placeholder: "Select a vendor",
+        minimumResultsForSearch: Infinity,
+        allowClear: true,
+        minimumInputLength: 0,
+        theme: "bootstrap",
+        ajax: {
+            url: '/get_all_vendors',  // URL to the API that returns the products
+            type: 'POST',
+            contentType: 'application/json; charset=utf-8',
+            dataType: 'json',
+            delay: 50, // wait 250 milliseconds before triggering the request
+            data: function (params) {
+                return JSON.stringify(data);
+            },
+            processResults: function (data) {
+                // Transforms the top-level key of the response object from 'products' to 'results'
+                return {
+                    results: data.vendors.map(function(item) {
+                        return {
+                            id: item.id,
+                            text: item.attributes.name // assuming the name is in the 'attributes' object
+                        };
+                    })
+                };
+            },
+            cache: true
+        }
+    }).on('select2:select', function (e) {
+        var data = e.params.data;
+        $('#only_vendor_name').val(data.text);
+    }).on('select2:unselect', function (e) {
+        $('#only_vendor_name').val('');
+    });
+
+});  
+</script>
+    
+</body>
+</html>
