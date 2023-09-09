@@ -21,50 +21,6 @@ from prompts import *
 app_settings = {}
 category_settings = {}
 seo_settings = {}
-'''
-app_settings = {
-    'X-CloudCart-ApiKey': 'RXQIXXDCPSKBJXQNVDKJXLWRXTNTAPNADZ4AYCKAE2K77TL1H8UQ9XGXUXKO89GT',
-    'url': 'https://giannibg.com/',
-    'model': 'gpt-4',
-    'seo_model': 'gpt-4',
-    'website_name': 'giannibg',
-    'temperature': 0,
-    'openai_key': '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',
-    'print_prompt': False,
-    'print_scraped_data': False,
-    'language': 'bulgarian',
-    'length': 100,
-}
-
-category_settings = {
-    'category_id': 396, # The ID of the category to generate content for. If None, the script will generate content for all categories
-    'max_props': 5, # The maximum number of properties to be scrapped
-    'max_property_values': 1, # The maximum number of property values to be scrapped
-    'max_order_pages': 10, # The maximum number of order pages to be analyzed
-    'description_length': 500, # The maximum length of the category description
-    'number_images': 3, # The script will include images in the generated content
-    'only_active_products': True, # If True, the script will only generate content for active products
-    'include_category_info': True, # If True, the script will include category levels like root category, same level category and child categories
-    
-    'add_faq': 5, # The maximum number of FAQ to be included in the description
-
-    ### Best sellers settings ###
-    'include_sales_info': True, # If True, the script will include sales info in the generated content like Best selling brands and Best selling products
-    'add_best_selling_products': 2, # The maximum number of best selling products to be included in the description per range. 0 will disable this feature
-    'add_top_brands': 5, # The maximum number of top brands to be included in the description. 0 will disable this feature
-}
-
-seo_settings = {
-    '': 2, # The maximum number of category links to be included in the description
-    '': 1, # The maximum number of keywords to be generated for each property value
-    '': True, # If True, the script will add links to the top brands. It have to be depending to add_top_brands variable. If it is 0 than it will be False
-    '': False, # If True, the script will generate keywords for each property value
-    '': True, # If True, the script will generate generic keywords for each property value
-    '': True, # If True, the script will include the category name in the headings
-    '': True, # If True, the script will add links to the FAQ section of the category's Wikipedia page
-}
-'''
-
 
 stop_category_process = {}
 
@@ -1312,7 +1268,7 @@ def generate_category_description(db, Category_Settings, Processed_category, app
     
 
     if seo_settings['generic_keywords']:
-        
+
         # Check if unique_keywords_string is empty from the DB
         category_keywords_records = db.session.query(Processed_category).filter_by(project_id=project_id, category_id=category_id).first()
         if category_keywords_records.category_keywords:
