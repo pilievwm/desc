@@ -1537,9 +1537,10 @@ def processCategories(db, Processed_category, Category_Settings, project_id, x_c
     # Iterate and save each unprocessed category
     for category in unprocessed_categories:
         category_id = category.get('id', None)
-        if not has_products_in_category(app_settings, category_id):
-            print(f"Skipping category ID {category_id} because it has no products.")
-            continue  # skip to the next category if no products
+
+        #if not has_products_in_category(app_settings, category_id):
+        #    print(f"Skipping category ID {category_id} because it has no products.")
+        #    continue  # skip to the next category if no products
 
         category_name = category.get('name', None)
         category_url_handle = category.get('url_handle', None)
