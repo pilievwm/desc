@@ -198,6 +198,7 @@ def create_category_class(db):
         faq_include_category_name_at_headings = db.Column(db.Boolean, default=False)
         faq_brand_link_authority = db.Column(db.Boolean, default=False)
         faq_wiki_link_authority = db.Column(db.Boolean, default=False)
+        append_faq = db.Column(db.Boolean, default=False)
 
 
         #############################

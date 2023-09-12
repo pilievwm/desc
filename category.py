@@ -386,7 +386,7 @@ def getVendors(app_settings):
     return vendors
 
 ### GET TARGET CATEGORY INFO ###
-def getTargetCategoryInfo(db, Processed_category, app_settings, category_id, category_settings, seo_settings, project_id):
+def getTargetCategoryInfo(db, Processed_category, app_settings, category_id, category_settings, seo_settings, project_id, include_description=False):
     now = datetime.now()
     formatted_now = now.strftime("%d/%m/%Y %H:%M:%S")
 
@@ -415,7 +415,7 @@ def getTargetCategoryInfo(db, Processed_category, app_settings, category_id, cat
                     Config.socketio.emit('log', {'data': f'{formatted_now}: Getting links from {url}'},room=str(project_id), namespace='/')
                     properties = get_links_from_page(url, app_settings, category_settings, category_name, seo_settings, project_id)
 
-
+            description = ''
             # compare the description_lenght with the number of characters 
             # get the description, remove HTML tags
             raw_description = re.sub('<[^<]+?>', '', html.unescape(data['attributes'].get('description')))
@@ -440,12 +440,16 @@ def getTargetCategoryInfo(db, Processed_category, app_settings, category_id, cat
 
             # truncate to the end of the sentence at or before description_length characters
             truncated_description = textwrap.shorten(raw_description, width=description_length, placeholder="...")
-
+            
+            if include_description:
+                description = data['attributes'].get('description'),
+            
             # format the output
             target_category_info = {
                 "name": data['attributes'].get('name'),
                 "id": data.get('id'),
                 "url_handle": url,
+                "description": description,
                 # add condition to check if the category contains properties
                 "properties": properties if properties else []
             }
@@ -753,7 +757,7 @@ def craft_faqs(db, Processed_category, Category_Settings, app_settings, category
     if category_settings['faq_use_schema']:
         sys_prompt = f'Craft an FAQs of the category in this strictly and valid format: {faq_schema}. The answer for each FAQ must be put at ***ANSWER-PLACEHOLDER***! Additionally: The text at the ***ANSWER-PLACEHOLDER*** must be with appropriate HTML tags to improve its structure. For new lines use "br", for bold: "strong". When you have listings use "ul" and "li" or "ol" for numbers, while preserving the existing tags. Emphasize headings, subheadings, and key points by new lines, and ensure the content flows coherently. DO NOT MENTION ANYTHING FROM THE PROMPT IN ANY CASE!'
     else:
-        sys_prompt = f'Craft an FAQs of the category. It have to be written in {app_settings["language"]}. For headings use H3. Make the text readable and for each text block you must add <p> tag. If you need to make it more visible add ampty lines between text blocks. For bold use strong tag, for italic use em tag. The output must be ONLY the FAQs explicitly! DO NOT MENTION ANYTHING FROM THE PROMPT IN ANY CASE!'
+        sys_prompt = f'Craft an FAQs of the category. It have to be written in {app_settings["language"]}. For headings use H3. Make the text readable and for each text block you must add <p> tag. For new lines use "br", for bold: "strong". When you have listings use "ul" and "li" or "ol" for numbers, while preserving the existing tags. Emphasize headings, subheadings, and key points by new lines, and ensure the content flows coherently. DO NOT MENTION ANYTHING FROM THE PROMPT IN ANY CASE!'
 
     system_prompt = (
         sys_prompt
@@ -761,7 +765,7 @@ def craft_faqs(db, Processed_category, Category_Settings, app_settings, category
 
     
     #### KEYWRDS RESEARCH ####
-
+    
     Config.socketio.emit('log', {'data': f'{formatted_now}: Searching Google for related searches for {target_category_name}'},room=str(project_id), namespace='/')
     cluster_keywords_dict = keywords_one_level(db, Category_Settings, app_settings, main_query=target_category_name, project_id=project_id)
 
@@ -853,11 +857,11 @@ def craft_faqs(db, Processed_category, Category_Settings, app_settings, category
         prompt = ''
         ### INTRO ###
         prompt += f"*** GENERAL FAQ INSTRUCTIONS: ***\n"
-        prompt += f"I want you to act as a proficient SEO content writer for FAQs. "
+        prompt += f"I want you to act as a proficient SEO content writer for FAQs in {app_settings['language']}"
 
         prompt += f"Each answer MUST contains minimum {category_settings['faq_length']} words.\n"
 
-        prompt += f"Craft a 100% unique, SEO-optimized question and answer for the FAQ section in {app_settings['language']} language. "
+        prompt += f"Craft a 100% unique, SEO-optimized question and answer for the FAQ section in {app_settings['language']}. "
         ### INSTRUCTIONS FOR QUESTIONS ###
         prompt += f"INSTRUCTIONS FOR CRAFTING QUESTIONS:\n"
         prompt += f"This is question #{iteration_counter}. Craft a question from this keyword: '{current_keyword}' for the category: '{target_category_name}' with H3 tag.\n"
@@ -957,7 +961,7 @@ def craft_faqs(db, Processed_category, Category_Settings, app_settings, category
         
         ### GENERAL CONCLUSION INSTRUCTIONS ###
         prompt += f"*** FINAL INSTRUCTIONS: ***\n"
-        prompt += f"Each Question and Answer should be written in your own words, without copying from other sources and must use provided keyphrases.\n"
+        prompt += f"Each Question and Answer should be written in your own words, without copying from other sources and must use provided keyphrases in {app_settings['language']}\n"
         prompt += f"Utilize an informal tone, personal pronouns, active voice, rhetorical questions, and incorporate analogies and metaphors. Keep the text simple, brief and very well formated.\n"
         
         #prompt += "IMPORTANT!: YOU MUST to format the given answer text with appropriate HTML tags to make it well-organized and visually appealing. IT IS A MUST"
@@ -1665,6 +1669,7 @@ def cat(db, Processed_category, Category_Settings, app_settings, category_settin
                 result['best_selling_brands'] = best_selling_brands
         
 
+
         # Save the processed category
         # This is information about all fields from the database
         # project_id, category_id, category_structure, category_name, category_prompt, category_description, category_faqs, category_keywords, category_custom_keywords
@@ -1706,6 +1711,10 @@ def cat(db, Processed_category, Category_Settings, app_settings, category_settin
         if app_settings['print_prompt'] == False:
             if app_settings['enable_category_description'] and category_settings['enable_faq_generation']:
                 description = description + '\n' + faq
+            elif category_settings['enable_faq_generation'] and category_settings['append_faq']:
+                get_category_description = getTargetCategoryInfo(db, Processed_category, app_settings, category_id, category_settings, seo_settings, project_id, include_description=True)
+                # set the description into a string
+                description = get_category_description['description'][0] + '\n\n' + faq
             elif category_settings['enable_faq_generation']:
                 description = faq
 

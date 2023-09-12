@@ -774,6 +774,7 @@ def batch_processing(project_id):
                     "max_property_values_faq": category.max_property_values_faq,
                     "include_properties_faq": category.include_properties_faq,
                     "enable_additional_instructions": category.enable_additional_instructions,
+                    "append_faq": category.append_faq,
                 }
             }
             
@@ -1330,6 +1331,7 @@ def save_settings_categories(project_id):
         "include_intro": "include_intro",
         "interesting_fact": "interesting_fact",
         "enable_additional_instructions": "enable_additional_instructions",
+        "append_faq": "append_faq",
 
     }
 

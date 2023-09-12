@@ -437,7 +437,16 @@
                                     <!-- FAQ settings content here -->
                                     <fieldset>
                                         <p class="text-black-50">Please provide what type of information should be included in the FAQ section</p>
-                                        <hr md-3>   
+                                        <hr md-3> 
+                                        
+                                        <div class="mb-3 form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="append_faq" name="append_faq" {% if category.append_faq %}checked{% endif %}>
+                                            <label class="form-check-label" for="append_faq">Append FAQs</label><br />
+                                            <small class="text-muted">If enabled will append the FAQ section to existing category description.</small>
+                                        </div>
+
+                                        <hr md-3>
+
                                         <div class="mb-3">
                                             <label for="faq_length" class="form-label">Lenght for each FAQ (in words)
                                                 <br>
@@ -1297,6 +1306,7 @@
                     "include_intro": $('#include_intro').is(':checked'),
                     "interesting_fact": $('#interesting_fact').is(':checked'),
                     "enable_additional_instructions": $('#enable_additional_instructions').is(':checked'),
+                    "append_faq": $('#append_faq').is(':checked'),
                     
 
 
@@ -1440,6 +1450,7 @@
                     "include_intro": $('#include_intro').is(':checked'),
                     "interesting_fact": $('#interesting_fact').is(':checked'),
                     "enable_additional_instructions": $('#enable_additional_instructions').is(':checked'),
+                    "append_faq": $('#append_faq').is(':checked'),
 
                 }
                 // Get other SEO and prompt settings data...
